@@ -5,9 +5,9 @@ export const PLAYER_DEFAULTS = {
   FIRE_INTERVAL: 0.15,
   BULLET_SPEED: 750,
   BULLET_RADIUS: 4,
-  DASH_DURATION: 0.25,
-  DASH_SPEED: 650,
-  DASH_COOLDOWN: 1.0,
+  DASH_DURATION: 0.22,
+  DASH_SPEED: 680,
+  DASH_COOLDOWN: 0.5,
   GRENADE_COOLDOWN: 4.5,
   FLASHBANG_COOLDOWN: 6.0,
 };
@@ -318,7 +318,7 @@ export class Player {
       this.x += this.dashDir.x * PLAYER_DEFAULTS.DASH_SPEED * dt;
       this.y += this.dashDir.y * PLAYER_DEFAULTS.DASH_SPEED * dt;
       if (Math.random() < 0.7) {
-        this.afterimages.push({ x: this.x, y: this.y, life: 0.14, maxLife: 0.14, color: '#f59e0b' });
+        this.afterimages.push({ x: this.x, y: this.y, life: 0.14, maxLife: 0.14, color: '#38bdf8' });
       }
     } else {
       this.isInvulnerable = false;
@@ -562,9 +562,8 @@ export class Player {
         ctx.translate(0, -bob);
       }
     } else if (this.dashTimer > 0) {
-      ctx.translate(0, 5);
-      ctx.rotate(-facing * 0.35);
-      ctx.globalAlpha = 0.88;
+      ctx.translate(0, -bob);
+      ctx.globalAlpha = 0.85;
     } else {
       ctx.translate(0, -bob);
     }
