@@ -12,6 +12,13 @@ import {
   renderPickups,
   PICKUP_TYPES,
 } from './pickups.js';
+import {
+  createArenaObstacles,
+  createObstacle,
+  resolveEntityObstacleCollision,
+  updateObstacles,
+  renderObstacles,
+} from './obstacles.js';
 
 export const CANVAS_WIDTH = 1280;
 export const CANVAS_HEIGHT = 720;
@@ -53,13 +60,15 @@ const gameState = {
   enemies: [],
   enemyBullets: [],
   pickups: [],
+  obstacles: [],
   bullets: player.bullets,
   waveManager,
 };
 
 let lastTime = 0;
 let animationFrameId = null;
-let supplyDropTimer = 8.5;
+let supplyDropTimer = 14.0;
+let obstacleRespawnTimer = 15.0;
 let lastAnnouncedWave = 0;
 let lastStandAnnounced = false;
 
@@ -78,8 +87,10 @@ export function restart() {
   gameState.enemies.length = 0;
   gameState.enemyBullets.length = 0;
   gameState.pickups.length = 0;
+  gameState.obstacles = createArenaObstacles(bounds);
   gameState.bullets = player.bullets;
-  supplyDropTimer = 8.5;
+  supplyDropTimer = 14.0;
+  obstacleRespawnTimer = 15.0;
   waveManager.setDifficulty(gameState.difficulty);
   waveManager.reset();
   effects.reset();
@@ -119,6 +130,72 @@ const ui = new GameUI(canvas, {
     waveManager.setDifficulty(level);
   },
 });
+
+/**
+ * Handles destruction of a barrel (AoE explosion) or supply box (loot drop).
+ * @param {object} obs
+ */
+function destroyObstacle(obs) {
+  if (obs.isDestroyed) return;
+  obs.isDestroyed = true;
+
+  if (obs.type === 'barrel') {
+    const blastRadius = 125;
+    const blastDamage = 130;
+    effects.spawnExplosion(obs.x, obs.y, {
+      color: '#ef4444',
+      secondaryColor: '#fde047',
+      radius: 115,
+      count: 34,
+      shake: 9,
+    });
+
+    // Damage enemies in blast radius
+    for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+      const enemy = gameState.enemies[i];
+      if (Math.hypot(enemy.x - obs.x, enemy.y - obs.y) <= blastRadius + enemy.radius) {
+        enemy.takeDamage(blastDamage);
+        if (enemy.isDead) {
+          const pts =
+            enemy.type === 'boss' ? 1500 : enemy.type === 'brute' ? 250 : enemy.type === 'spitter' ? 160 : 100;
+          gameState.score += pts;
+          effects.spawnExplosion(enemy.x, enemy.y, { color: enemy.color, radius: 52, count: 20, shake: 4 });
+          gameState.enemies.splice(i, 1);
+        }
+      }
+    }
+
+    // Damage player slightly if right next to barrel
+    if (!player.isDead && Math.hypot(player.x - obs.x, player.y - obs.y) <= blastRadius * 0.75 + player.radius) {
+      player.takeDamage(25);
+    }
+
+    // Chain-detonate nearby barrels / boxes
+    for (const other of gameState.obstacles) {
+      if (!other.isDestroyed && Math.hypot(other.x - obs.x, other.y - obs.y) <= blastRadius) {
+        other.health -= 50;
+        if (other.health <= 0) {
+          destroyObstacle(other);
+        }
+      }
+    }
+  } else {
+    // Supply box drops 1-2 collectables (Ammo, Health, Grenade, Flashbang)
+    effects.spawnExplosion(obs.x, obs.y, {
+      color: '#d97706',
+      secondaryColor: '#fde68a',
+      radius: 42,
+      count: 14,
+      shake: 2,
+    });
+    const dropCount = Math.random() < 0.45 ? 2 : 1;
+    for (let i = 0; i < dropCount; i++) {
+      const offsetX = (Math.random() - 0.5) * 26;
+      const offsetY = (Math.random() - 0.5) * 26;
+      spawnPickup(gameState.pickups, obs.x + offsetX, obs.y + offsetY, chooseRandomPickupType(player));
+    }
+  }
+}
 
 /**
  * @param {number} dt
@@ -193,15 +270,75 @@ function update(dt) {
   }
 
   updateEnemies(gameState.enemies, dt, player, gameState.enemyBullets);
+  updateObstacles(gameState.obstacles, dt);
   updatePickups(gameState.pickups, dt);
 
-  // Periodic arena supply drops
+  // Solid obstacle collisions for player & enemies
+  resolveEntityObstacleCollision(player, gameState.obstacles, bounds);
+  for (const enemy of gameState.enemies) {
+    resolveEntityObstacleCollision(enemy, gameState.obstacles);
+  }
+
+  // Player & enemy bullets vs Obstacles
+  for (let i = player.bullets.length - 1; i >= 0; i--) {
+    const b = player.bullets[i];
+    for (const obs of gameState.obstacles) {
+      if (obs.isDestroyed) continue;
+      if (checkCircleCollision(b, obs)) {
+        obs.health -= b.damage ?? 25;
+        obs.hitFlash = 0.08;
+        effects.spawnHit(b.x, b.y, { color: obs.type === 'barrel' ? '#ef4444' : '#fbbf24' });
+        player.bullets.splice(i, 1);
+        if (obs.health <= 0) {
+          destroyObstacle(obs);
+        }
+        break;
+      }
+    }
+  }
+
+  for (let i = gameState.enemyBullets.length - 1; i >= 0; i--) {
+    const eb = gameState.enemyBullets[i];
+    for (const obs of gameState.obstacles) {
+      if (obs.isDestroyed) continue;
+      if (checkCircleCollision(eb, obs)) {
+        obs.health -= eb.damage ?? 12;
+        obs.hitFlash = 0.08;
+        effects.spawnHit(eb.x, eb.y, { color: eb.color ?? '#c084fc' });
+        gameState.enemyBullets.splice(i, 1);
+        if (obs.health <= 0) {
+          destroyObstacle(obs);
+        }
+        break;
+      }
+    }
+  }
+
+  // Remove destroyed obstacles
+  for (let i = gameState.obstacles.length - 1; i >= 0; i--) {
+    if (gameState.obstacles[i].isDestroyed) {
+      gameState.obstacles.splice(i, 1);
+    }
+  }
+
+  // Periodically respawn a barrel or supply box (max 10)
+  obstacleRespawnTimer -= dt;
+  if (obstacleRespawnTimer <= 0 && gameState.obstacles.length < 10) {
+    const ox = 110 + Math.random() * (CANVAS_WIDTH - 220);
+    const oy = 110 + Math.random() * (CANVAS_HEIGHT - 220);
+    if (Math.hypot(ox - player.x, oy - player.y) > 130) {
+      gameState.obstacles.push(createObstacle(ox, oy, Math.random() < 0.5 ? 'barrel' : 'box'));
+    }
+    obstacleRespawnTimer = 15.0;
+  }
+
+  // Periodic arena supply drops (less frequent now that boxes drop loot)
   supplyDropTimer -= dt;
   if (supplyDropTimer <= 0) {
     const px = 120 + Math.random() * (CANVAS_WIDTH - 240);
     const py = 120 + Math.random() * (CANVAS_HEIGHT - 240);
     spawnPickup(gameState.pickups, px, py, chooseRandomPickupType(player));
-    supplyDropTimer = 8.5;
+    supplyDropTimer = 14.0;
   }
 
   // Collect pickups on touch
@@ -260,6 +397,15 @@ function update(dt) {
         shake: 7,
       });
 
+      for (const obs of gameState.obstacles) {
+        if (!obs.isDestroyed && Math.hypot(obs.x - det.x, obs.y - det.y) <= blastRadius + obs.radius) {
+          obs.health -= blastDamage;
+          if (obs.health <= 0) {
+            destroyObstacle(obs);
+          }
+        }
+      }
+
       for (let i = gameState.enemies.length - 1; i >= 0; i--) {
         const enemy = gameState.enemies[i];
         const dist = Math.hypot(enemy.x - det.x, enemy.y - det.y);
@@ -281,8 +427,10 @@ function update(dt) {
               radius: enemy.type === 'boss' ? 90 : 48,
               shake: enemy.type === 'boss' ? 10 : 4,
             });
-            if (enemy.type !== 'runner' || Math.random() < 0.35) {
-              spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
+            if (enemy.type !== 'runner' || Math.random() < 0.08) {
+              if (enemy.type !== 'boss' && Math.random() < (enemy.type === 'brute' ? 0.3 : 0.15)) {
+                spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
+              }
             }
             gameState.enemies.splice(i, 1);
           }
@@ -329,7 +477,8 @@ function update(dt) {
         shake: isBoss ? 12 : isBrute ? 7 : 4,
       });
       gameState.score += isBoss ? 1500 : isBrute ? 250 : isSpitter ? 160 : 100;
-      if (!isBoss && (isBrute || (isSpitter && Math.random() < 0.45) || Math.random() < 0.32)) {
+      const dropChance = isBrute ? 0.3 : isSpitter ? 0.15 : 0.08;
+      if (!isBoss && Math.random() < dropChance) {
         spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
       }
     } else if (enemy.health < prevHealth) {
@@ -369,6 +518,7 @@ function render() {
   if (gameState.state !== 'menu') {
     effects.beginShake(ctx);
     renderPickups(gameState.pickups, ctx);
+    renderObstacles(gameState.obstacles, ctx);
     renderEnemies(gameState.enemies, ctx);
 
     // Enemy & Boss plasma projectiles
