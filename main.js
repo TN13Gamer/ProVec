@@ -5,6 +5,7 @@ import { WaveManager, SURVIVAL_WAVES } from './waves.js';
 import { resolveCombatCollisions, checkCircleCollision } from './collision.js';
 import { GameUI } from './ui.js';
 import { EffectsManager } from './effects.js';
+import { SoundManager } from './sound.js';
 import {
   spawnPickup,
   chooseRandomPickupType,
@@ -63,6 +64,7 @@ const bounds = { width: CANVAS_WIDTH, height: CANVAS_HEIGHT };
 
 const waveManager = new WaveManager(bounds, SURVIVAL_WAVES);
 const effects = new EffectsManager();
+const sound = new SoundManager();
 
 const gameState = {
   state: 'menu', // 'menu' | 'playing' | 'paused' | 'gameover' | 'victory'
@@ -100,6 +102,7 @@ export function startGame() {
  * Resets the core game state to its initial playing values.
  */
 export function restart() {
+  sound.unlock();
   player.reset(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
   gameState.enemies.length = 0;
   gameState.enemyBullets.length = 0;
@@ -164,6 +167,7 @@ function destroyObstacle(obs) {
       count: 34,
       shake: 9,
     });
+    sound.playExplosion(1.1);
 
     // Damage enemies in blast radius
     for (let i = gameState.enemies.length - 1; i >= 0; i--) {
@@ -230,7 +234,7 @@ function update(dt) {
   ui.update(dt);
 
   if (gameState.state === 'menu') {
-    effects.update(dt);
+    effects.update(dt, bounds);
     if (input.wasKeyPressed('Enter') || input.wasKeyPressed('Space')) {
       startGame();
     }
@@ -258,24 +262,34 @@ function update(dt) {
 
   if (gameState.state !== 'playing') {
     if (gameState.state !== 'paused') {
-      effects.update(dt);
+      effects.update(dt, bounds);
     }
     input.endFrame();
     return;
   }
 
-  effects.update(dt);
+  effects.update(dt, bounds);
 
   const prevBulletCount = player.bullets.length;
   const prevPlayerHealth = player.health;
+  const prevReloading = player.reloadTimer > 0;
+  const prevDashing = player.dashTimer > 0;
 
   player.update(dt, input, bounds);
+
+  if (!prevReloading && player.reloadTimer > 0) {
+    sound.playReload();
+  }
+  if (!prevDashing && player.dashTimer > 0) {
+    sound.playDash();
+  }
 
   if (player.bullets.length > prevBulletCount) {
     const barrelOffset = player.radius + 10;
     const muzzleX = player.x + Math.cos(player.angle) * barrelOffset;
     const muzzleY = player.y + Math.sin(player.angle) * barrelOffset;
     effects.spawnMuzzleFlash(muzzleX, muzzleY, player.angle);
+    sound.playShoot(player.weaponKey, player.isRaging);
   }
 
   waveManager.update(dt, gameState.enemies);
@@ -293,11 +307,13 @@ function update(dt) {
 
   if (!lastStandAnnounced && player.lastStandTimer > 0) {
     lastStandAnnounced = true;
+    sound.playLastStand();
     ui.showCenterPopup('LAST STAND', 'INVISIBLE FOR 5.0 SECONDS', 2.5, 'laststand');
   }
 
   if (player.isRaging && !wasRaging) {
-    ui.showCenterPopup('RAGE ACTIVATED', '2X DAMAGE  |  1.5X SPEED  |  50% RESISTANCE', 2.2, 'boss');
+    sound.playRage();
+    ui.showCenterPopup('RAGE ACTIVATED', '2X DMG & RELOAD  |  1.5X SPEED  |  50% RES', 2.2, 'boss');
   }
   wasRaging = player.isRaging;
 
@@ -416,6 +432,7 @@ function update(dt) {
       }
       const color = PICKUP_TYPES[p.type]?.color ?? '#38bdf8';
       effects.spawnHit(p.x, p.y, { color, count: 10, radius: 24 });
+      sound.playPickup();
       gameState.pickups.splice(i, 1);
     }
   }
@@ -481,6 +498,7 @@ function update(dt) {
     if (det.type === 'grenade') {
       const blastRadius = 85;
       const blastDamage = 140;
+      sound.playExplosion(1.1);
       effects.spawnExplosion(det.x, det.y, {
         color: '#f97316',
         secondaryColor: '#fde047',
@@ -541,6 +559,7 @@ function update(dt) {
       }
     } else if (det.type === 'flashbang') {
       const flashRadius = 220;
+      sound.playFlashbang();
       effects.spawnExplosion(det.x, det.y, {
         color: '#e0f2fe',
         secondaryColor: '#ffffff',
@@ -581,6 +600,7 @@ function update(dt) {
         radius: isBoss ? 100 : isBrute ? 68 : 48,
         shake: isBoss ? 12 : isBrute ? 7 : 4,
       });
+      sound.playExplosion(isBoss ? 1.5 : isBrute ? 1.0 : 0.7);
       gameState.score += isBoss ? 1500 : isBrute ? 250 : isMissiler ? 200 : isSpitter ? 160 : isStalker ? 140 : 100;
       player.addRage(isBoss ? 50 : isBrute ? 22 : 12);
       const dropChance = isBrute ? 0.12 : isMissiler ? 0.08 : isSpitter || isStalker ? 0.06 : 0.03;
@@ -589,11 +609,13 @@ function update(dt) {
       }
     } else if (enemy.health < prevHealth) {
       player.addRage(3);
+      sound.playHit();
       effects.spawnHit(enemy.x, enemy.y, { color: '#fde047' });
     }
   }
 
   if (player.health < prevPlayerHealth) {
+    sound.playPlayerDamage();
     effects.triggerDamageFlash(0.4);
     effects.triggerScreenShake(6, 0.22);
   }

@@ -370,9 +370,10 @@ export class Player {
       this.startReload();
     }
 
-    // Active reload timer
+    // Active reload timer (2x faster during Rage mode)
     if (this.reloadTimer > 0) {
-      this.reloadTimer = Math.max(0, this.reloadTimer - dt);
+      const reloadRate = this.isRaging ? 2 : 1;
+      this.reloadTimer = Math.max(0, this.reloadTimer - dt * reloadRate);
       if (this.reloadTimer === 0) {
         const ammo = this.ammoState[this.weaponKey];
         const needed = this.weapon.magSize - ammo.mag;

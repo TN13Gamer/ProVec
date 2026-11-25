@@ -66,7 +66,11 @@ export class EffectsManager {
         life,
         maxLife: life,
         color,
-        drag: 0.9,
+        drag: 0.91,
+        bounce: 0.55,
+        angle: Math.random() * Math.PI * 2,
+        vAngle: (Math.random() - 0.5) * 14,
+        isShard: false,
       });
     }
   }
@@ -106,11 +110,11 @@ export class EffectsManager {
       color: secondaryColor,
     });
 
-    // Debris & ember particles
+    // Debris & ember particles with spin and bounce physics
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 70 + Math.random() * 240;
-      const life = 0.25 + Math.random() * 0.32;
+      const speed = 80 + Math.random() * 260;
+      const life = 0.28 + Math.random() * 0.36;
       const isHot = i % 3 === 0;
 
       this.particles.push({
@@ -118,11 +122,15 @@ export class EffectsManager {
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        size: 2.2 + Math.random() * 3.5,
+        size: 2.4 + Math.random() * 3.6,
         life,
         maxLife: life,
         color: isHot ? secondaryColor : color,
         drag: 0.92,
+        bounce: 0.65,
+        angle: Math.random() * Math.PI * 2,
+        vAngle: (Math.random() - 0.5) * 18,
+        isShard: i % 4 === 0,
       });
     }
 
@@ -193,10 +201,11 @@ export class EffectsManager {
   }
 
   /**
-   * Updates all active particles, rings, flashes, and screen shake timers.
+   * Updates all active particles (with drag, spin, and wall bounce), rings, flashes, and screen shake timers.
    * @param {number} dt
+   * @param {{ width: number, height: number } | null} [bounds=null]
    */
-  update(dt) {
+  update(dt, bounds = null) {
     const frameDragScale = dt * 60;
 
     for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -212,6 +221,26 @@ export class EffectsManager {
       p.vy *= damping;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      if (p.vAngle) {
+        p.angle = (p.angle || 0) + p.vAngle * dt;
+      }
+
+      if (bounds && p.bounce) {
+        if (p.x < p.size) {
+          p.x = p.size;
+          p.vx = Math.abs(p.vx) * p.bounce;
+        } else if (p.x > bounds.width - p.size) {
+          p.x = bounds.width - p.size;
+          p.vx = -Math.abs(p.vx) * p.bounce;
+        }
+        if (p.y < p.size) {
+          p.y = p.size;
+          p.vy = Math.abs(p.vy) * p.bounce;
+        } else if (p.y > bounds.height - p.size) {
+          p.y = bounds.height - p.size;
+          p.vy = -Math.abs(p.vy) * p.bounce;
+        }
+      }
     }
 
     for (let i = this.rings.length - 1; i >= 0; i--) {
@@ -307,14 +336,23 @@ export class EffectsManager {
       ctx.fill();
     }
 
-    // Sparks and embers
+    // Sparks, embers & rotating debris shards
     for (const p of this.particles) {
       const alpha = Math.max(0, p.life / p.maxLife);
+      const r = p.size * (0.5 + alpha * 0.5);
       ctx.globalAlpha = alpha;
       ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * (0.5 + alpha * 0.5), 0, Math.PI * 2);
-      ctx.fill();
+      if (p.isShard) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle || 0);
+        ctx.fillRect(-r, -r * 0.55, r * 2, r * 1.1);
+        ctx.restore();
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     ctx.restore();
