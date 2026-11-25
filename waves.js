@@ -83,8 +83,8 @@ export class WaveManager {
   constructor(bounds, waves = SURVIVAL_WAVES) {
     this.bounds = bounds;
     this.waves = waves;
-    this.difficultyKey = 'easy';
-    this.difficulty = DIFFICULTIES.easy;
+    this.difficultyKey = 'hard';
+    this.difficulty = DIFFICULTIES.hard;
     this.reset();
   }
 

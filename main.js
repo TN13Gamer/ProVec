@@ -50,7 +50,7 @@ const effects = new EffectsManager();
 
 const gameState = {
   state: 'menu', // 'menu' | 'playing' | 'paused' | 'gameover' | 'victory'
-  difficulty: 'easy',
+  difficulty: 'hard',
   score: 0,
   wave: 1,
   totalWaves: SURVIVAL_WAVES.length,
@@ -126,10 +126,6 @@ const ui = new GameUI(canvas, {
   onRestart: restart,
   onResume: resumeGame,
   onPause: pauseGame,
-  onDifficultyChange: (level) => {
-    gameState.difficulty = level;
-    waveManager.setDifficulty(level);
-  },
 });
 
 /**
@@ -454,10 +450,10 @@ function update(dt) {
               enemy.type === 'boss'
                 ? 1500
                 : enemy.type === 'brute'
-                ? 250
-                : enemy.type === 'spitter'
-                ? 160
-                : 100;
+                  ? 250
+                  : enemy.type === 'spitter'
+                    ? 160
+                    : 100;
             gameState.score += pts;
             effects.spawnExplosion(enemy.x, enemy.y, {
               color: enemy.color,
