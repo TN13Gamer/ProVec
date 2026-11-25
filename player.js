@@ -509,10 +509,13 @@ export class Player {
       const bullet = {
         x: spawnX,
         y: spawnY,
+        prevX: spawnX,
+        prevY: spawnY,
         vx: Math.cos(shotAngle) * w.bulletSpeed,
         vy: Math.sin(shotAngle) * w.bulletSpeed,
         radius: w.bulletRadius,
         damage: w.damage * (this.isRaging ? 2 : 1),
+        bounces: w.id === 'primary' ? 1 : 0,
         color: this.isRaging ? '#ef4444' : w.color,
         auraRgba: this.isRaging ? '239, 68, 68' : w.auraRgba,
         coreRgba: this.isRaging ? '254, 226, 226' : w.coreRgba,
@@ -580,6 +583,8 @@ export class Player {
   _updateBullets(dt, bounds) {
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i];
+      b.prevX = b.x;
+      b.prevY = b.y;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
 

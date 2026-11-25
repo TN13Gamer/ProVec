@@ -370,7 +370,7 @@ function update(dt) {
     }
   }
 
-  // Player & enemy bullets vs Obstacles
+  // Player & enemy bullets vs Obstacles (with grazing ricochet for Pulse Rifle)
   for (let i = player.bullets.length - 1; i >= 0; i--) {
     const b = player.bullets[i];
     for (const obs of gameState.obstacles) {
@@ -381,9 +381,27 @@ function update(dt) {
         const bSpd = Math.hypot(b.vx, b.vy) || 1;
         applyObstacleImpulse(obs, (b.vx / bSpd) * 55, (b.vy / bSpd) * 55);
         effects.spawnHit(b.x, b.y, { color: obs.type === 'barrel' ? '#ef4444' : '#fbbf24' });
-        player.bullets.splice(i, 1);
+
         if (obs.health <= 0) {
           destroyObstacle(obs);
+          player.bullets.splice(i, 1);
+        } else if ((b.bounces ?? 0) > 0) {
+          // Check shallow grazing angle for ricochet
+          const nx = (b.x - obs.x) / (Math.hypot(b.x - obs.x, b.y - obs.y) || 1);
+          const ny = (b.y - obs.y) / (Math.hypot(b.x - obs.x, b.y - obs.y) || 1);
+          const vDotN = (b.vx / bSpd) * nx + (b.vy / bSpd) * ny;
+          if (Math.abs(vDotN) < 0.42) {
+            const dot = b.vx * nx + b.vy * ny;
+            b.vx = (b.vx - 2 * dot * nx) * 0.85;
+            b.vy = (b.vy - 2 * dot * ny) * 0.85;
+            b.x = obs.x + nx * (obs.radius + b.radius + 2);
+            b.y = obs.y + ny * (obs.radius + b.radius + 2);
+            b.bounces -= 1;
+          } else {
+            player.bullets.splice(i, 1);
+          }
+        } else {
+          player.bullets.splice(i, 1);
         }
         break;
       }
