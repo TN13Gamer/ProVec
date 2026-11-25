@@ -154,17 +154,18 @@ function destroyObstacle(obs) {
         enemy.takeDamage(blastDamage);
         if (enemy.isDead) {
           const pts =
-            enemy.type === 'boss'
-              ? 1500
-              : enemy.type === 'brute'
+            enemy.type === 'boss' ? 1500 : enemy.type === 'brute' ? 250 : enemy.type === 'spitter' ? 160 : 100;
+          enemy.type === 'boss'
+            ? 1500
+            : enemy.type === 'brute'
               ? 250
               : enemy.type === 'missiler'
-              ? 200
-              : enemy.type === 'spitter'
-              ? 160
-              : enemy.type === 'stalker'
-              ? 140
-              : 100;
+                ? 200
+                : enemy.type === 'spitter'
+                  ? 160
+                  : enemy.type === 'stalker'
+                    ? 140
+                    : 100;
           gameState.score += pts;
           effects.spawnExplosion(enemy.x, enemy.y, { color: enemy.color, radius: 52, count: 20, shake: 4 });
           gameState.enemies.splice(i, 1);
@@ -367,6 +368,7 @@ function update(dt) {
     }
   }
 
+  // Update Boss projectiles and check hits against player
   // Update Enemy & Boss projectiles (including homing missiles) and check hits against player
   for (let i = gameState.enemyBullets.length - 1; i >= 0; i--) {
     const eb = gameState.enemyBullets[i];
@@ -408,6 +410,7 @@ function update(dt) {
 
     if (!player.isDead && checkCircleCollision(eb, player)) {
       player.takeDamage(eb.damage);
+      effects.spawnHit(eb.x, eb.y, { color: '#a855f7' });
       if (eb.isMissile) {
         effects.spawnExplosion(eb.x, eb.y, { color: '#f97316', radius: 48, count: 18, shake: 5 });
       } else {
@@ -557,10 +560,18 @@ function render() {
     renderObstacles(gameState.obstacles, ctx);
     renderEnemies(gameState.enemies, ctx);
 
+    // Enemy & Boss plasma projectiles
     // Enemy & Boss plasma projectiles / missiles
     if (gameState.enemyBullets.length > 0) {
       ctx.save();
       for (const eb of gameState.enemyBullets) {
+        ctx.beginPath();
+        ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
+        ctx.fillStyle = eb.color ?? '#c084fc';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
         if (eb.isMissile) {
           const angle = Math.atan2(eb.vy, eb.vx);
           ctx.save();
