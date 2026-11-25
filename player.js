@@ -110,6 +110,13 @@ export class Player {
     this.knockVx = 0;
     this.knockVy = 0;
 
+    // Rage meter state
+    this.rage = 0;
+    this.maxRage = 100;
+    this.isRaging = false;
+    this.rageTimer = 0;
+    this.rageDuration = 8.0;
+
     // Collectable Throwables (Grenade & Flashbang)
     this.selectedAccessory = 'grenade';
     this.grenadeCount = 2;
@@ -173,6 +180,28 @@ export class Player {
     const ny = dist > 0.001 ? dy / dist : Math.sin(this.angle + Math.PI);
     this.knockVx += nx * force;
     this.knockVy += ny * force;
+  }
+
+  /**
+   * Adds rage charge up to maxRage (ignored while already raging).
+   * @param {number} amount
+   */
+  addRage(amount) {
+    if (this.isDead || this.isRaging || amount <= 0) return;
+    this.rage = Math.min(this.maxRage, this.rage + amount);
+  }
+
+  /**
+   * Activates Rage mode if the meter is full (2x damage, 1.5x speed, 50% damage resistance).
+   * @returns {boolean}
+   */
+  activateRage() {
+    if (this.isDead || this.isRaging || this.rage < this.maxRage) {
+      return false;
+    }
+    this.isRaging = true;
+    this.rageTimer = this.rageDuration;
+    return true;
   }
 
   /**
@@ -293,17 +322,29 @@ export class Player {
     if (this.isDead) {
       this.isMoving = false;
       this.isInvisible = false;
+      this.isRaging = false;
       this.deathAnim = Math.min(1, this.deathAnim + dt * 2.5);
       return;
     }
 
+    if (this.isRaging) {
+      this.rageTimer = Math.max(0, this.rageTimer - dt);
+      this.rage = (this.rageTimer / this.rageDuration) * this.maxRage;
+      if (this.rageTimer <= 0) {
+        this.isRaging = false;
+        this.rage = 0;
+      }
+    }
+
     const move = input.getMovementVector();
 
-    // Weapon switching (Mouse Scroll / 1 / Q), Accessory switch (2), & Reload (R)
-    if (input.getWheelDelta?.() !== 0 || input.wasKeyPressed('KeyQ') || input.wasKeyPressed('Digit1')) {
+    // Weapon switching (Mouse Scroll / 1), Accessory switch (2), Rage (Q), & Reload (R)
+    if (input.getWheelDelta?.() !== 0 || input.wasKeyPressed('Digit1')) {
       this.toggleWeapon();
     } else if (input.wasKeyPressed('Digit2')) {
       this.toggleAccessory();
+    } else if (input.wasKeyPressed('KeyQ')) {
+      this.activateRage();
     } else if (input.wasKeyPressed('KeyR')) {
       this.startReload();
     }
@@ -334,20 +375,28 @@ export class Player {
       this.startDash(move);
     }
 
+    const speedMult = this.isRaging ? 1.5 : 1.0;
+
     if (this.dashTimer > 0) {
       this.dashTimer = Math.max(0, this.dashTimer - dt);
       this.isInvulnerable = this.dashTimer > 0;
       this.isMoving = true;
-      this.x += this.dashDir.x * PLAYER_DEFAULTS.DASH_SPEED * dt;
-      this.y += this.dashDir.y * PLAYER_DEFAULTS.DASH_SPEED * dt;
+      this.x += this.dashDir.x * PLAYER_DEFAULTS.DASH_SPEED * (this.isRaging ? 1.2 : 1) * dt;
+      this.y += this.dashDir.y * PLAYER_DEFAULTS.DASH_SPEED * (this.isRaging ? 1.2 : 1) * dt;
       if (Math.random() < 0.7) {
-        this.afterimages.push({ x: this.x, y: this.y, life: 0.14, maxLife: 0.14, color: '#38bdf8' });
+        this.afterimages.push({
+          x: this.x,
+          y: this.y,
+          life: 0.14,
+          maxLife: 0.14,
+          color: this.isRaging ? '#ef4444' : '#38bdf8',
+        });
       }
     } else {
       this.isInvulnerable = false;
       this.isMoving = move.x !== 0 || move.y !== 0;
-      this.x += move.x * this.speed * dt;
-      this.y += move.y * this.speed * dt;
+      this.x += move.x * this.speed * speedMult * dt;
+      this.y += move.y * this.speed * speedMult * dt;
     }
 
     // Apply & decay knockback impulse
@@ -421,10 +470,10 @@ export class Player {
         vx: Math.cos(shotAngle) * w.bulletSpeed,
         vy: Math.sin(shotAngle) * w.bulletSpeed,
         radius: w.bulletRadius,
-        damage: w.damage,
-        color: w.color,
-        auraRgba: w.auraRgba,
-        coreRgba: w.coreRgba,
+        damage: w.damage * (this.isRaging ? 2 : 1),
+        color: this.isRaging ? '#ef4444' : w.color,
+        auraRgba: this.isRaging ? '239, 68, 68' : w.auraRgba,
+        coreRgba: this.isRaging ? '254, 226, 226' : w.coreRgba,
       };
       this.bullets.push(bullet);
       if (!firstBullet) firstBullet = bullet;
@@ -450,8 +499,10 @@ export class Player {
       return this.health;
     }
 
-    this.health = Math.max(0, this.health - amount);
+    const effectiveAmount = this.isRaging ? amount * 0.5 : amount;
+    this.health = Math.max(0, this.health - effectiveAmount);
     this.hurtTimer = 0.18;
+    this.addRage(10);
     if (this.health <= 0) {
       this.isDead = true;
     } else if (!this.lastStandUsed && this.health <= this.maxHealth * 0.25) {
@@ -584,6 +635,16 @@ export class Player {
     ctx.beginPath();
     ctx.ellipse(0, 14, 15, 7, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // Rage fiery aura
+    if (!this.isDead && this.isRaging) {
+      const auraR = this.radius + 7 + Math.sin(this.animTime * 18) * 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, auraR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.75)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
 
     const facing = Math.cos(this.angle) >= 0 ? 1 : -1;
     const stride = this.isMoving && !this.isDead ? Math.sin(this.animTime * 16) : 0;

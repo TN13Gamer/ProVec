@@ -71,6 +71,7 @@ let supplyDropTimer = 14.0;
 let obstacleRespawnTimer = 15.0;
 let lastAnnouncedWave = 0;
 let lastStandAnnounced = false;
+let wasRaging = false;
 
 /**
  * Starts a fresh mission from the main menu or restarts during/after a run.
@@ -104,6 +105,7 @@ export function restart() {
   gameState.isVictory = false;
   lastAnnouncedWave = 1;
   lastStandAnnounced = false;
+  wasRaging = false;
   ui.showCenterPopup('WAVE 1', 'ALIEN SWARM INBOUND — 01:30', 2.4, 'wave');
   lastTime = performance.now();
 }
@@ -276,6 +278,11 @@ function update(dt) {
     lastStandAnnounced = true;
     ui.showCenterPopup('LAST STAND', 'INVISIBLE FOR 5.0 SECONDS', 2.5, 'laststand');
   }
+
+  if (player.isRaging && !wasRaging) {
+    ui.showCenterPopup('RAGE ACTIVATED', '2X DAMAGE  |  1.5X SPEED  |  50% RESISTANCE', 2.2, 'boss');
+  }
+  wasRaging = player.isRaging;
 
   updateEnemies(gameState.enemies, dt, player, gameState.enemyBullets);
   updateObstacles(gameState.obstacles, dt);
@@ -545,11 +552,13 @@ function update(dt) {
         shake: isBoss ? 12 : isBrute ? 7 : 4,
       });
       gameState.score += isBoss ? 1500 : isBrute ? 250 : isMissiler ? 200 : isSpitter ? 160 : isStalker ? 140 : 100;
+      player.addRage(isBoss ? 50 : isBrute ? 22 : 12);
       const dropChance = isBrute ? 0.3 : isMissiler ? 0.22 : isSpitter || isStalker ? 0.15 : 0.08;
       if (!isBoss && Math.random() < dropChance) {
         spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
       }
     } else if (enemy.health < prevHealth) {
+      player.addRage(3);
       effects.spawnHit(enemy.x, enemy.y, { color: '#fde047' });
     }
   }

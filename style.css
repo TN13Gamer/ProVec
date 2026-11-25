@@ -63,9 +63,29 @@ body {
 }
 
 .hud-health {
-  flex: 0 1 280px;
+  flex: 0 1 250px;
   gap: 5px;
   border-left: 4px solid #4ade80;
+}
+
+.hud-rage {
+  flex: 0 1 220px;
+  gap: 5px;
+  border-left: 4px solid #ef4444;
+}
+
+.rage-fill {
+  background: #ef4444;
+}
+
+.hud-rage.rage-ready {
+  border-color: #f59e0b;
+  background: #231407;
+}
+
+.hud-rage.rage-active {
+  border-color: #ef4444;
+  background: #2a0f12;
 }
 
 .hud-row {

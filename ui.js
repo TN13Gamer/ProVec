@@ -119,6 +119,9 @@ export class GameUI {
       ? {
           hudHealthText: document.getElementById('hudHealthText'),
           hudHealthBar: document.getElementById('hudHealthBar'),
+          hudRagePanel: document.getElementById('hudRagePanel'),
+          hudRageText: document.getElementById('hudRageText'),
+          hudRageBar: document.getElementById('hudRageBar'),
           hudWaveText: document.getElementById('hudWaveText'),
           hudWaveTimer: document.getElementById('hudWaveTimer'),
           hudScoreText: document.getElementById('hudScoreText'),
@@ -265,6 +268,24 @@ export class GameUI {
       this.els.hudHealthBar.style.backgroundColor =
         ratio <= 25 ? '#ef4444' : ratio <= 50 ? '#eab308' : '#22c55e';
     }
+
+    // Rage meter
+    const maxRage = Math.max(1, player.maxRage ?? 100);
+    const rage = Math.max(0, Math.min(maxRage, player.rage ?? 0));
+    const ragePct = Math.round((rage / maxRage) * 100);
+    const isRaging = Boolean(player.isRaging);
+    if (this.els.hudRageBar) {
+      this.els.hudRageBar.style.width = `${ragePct}%`;
+    }
+    if (this.els.hudRageText) {
+      this.els.hudRageText.textContent = isRaging
+        ? `ACTIVE ${player.rageTimer.toFixed(1)}s`
+        : ragePct >= 100
+        ? 'READY [Q]'
+        : `${ragePct}%`;
+    }
+    this.els.hudRagePanel?.classList.toggle('rage-ready', !isRaging && ragePct >= 100);
+    this.els.hudRagePanel?.classList.toggle('rage-active', isRaging);
 
     const wave =
       gameState.wave ??
