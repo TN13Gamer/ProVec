@@ -2,8 +2,8 @@ export const ENEMY_TYPES = {
   // Melee 1: Aggressive, fast, low health
   runner: {
     radius: 14,
-    speed: 175,
-    maxHealth: 28,
+    speed: 185,
+    maxHealth: 25,
     damage: 9,
     attackInterval: 0.7,
     color: '#84cc16',
@@ -21,10 +21,10 @@ export const ENEMY_TYPES = {
   },
   // Melee 3: Tank, slow, very high health
   brute: {
-    radius: 28,
-    speed: 75,
-    maxHealth: 240,
-    damage: 22,
+    radius: 29,
+    speed: 72,
+    maxHealth: 320,
+    damage: 24,
     attackInterval: 1.1,
     color: '#dc2626',
     strokeColor: '#fca5a5',
