@@ -128,10 +128,8 @@ export class GameUI {
           cardSecondary: document.getElementById('cardSecondary'),
           ammoPrimary: document.getElementById('ammoPrimary'),
           ammoSecondary: document.getElementById('ammoSecondary'),
-          cardSlide: document.getElementById('cardSlide'),
-          valSlide: document.getElementById('valSlide'),
-          cardDodge: document.getElementById('cardDodge'),
-          valDodge: document.getElementById('valDodge'),
+          cardDash: document.getElementById('cardDash'),
+          valDash: document.getElementById('valDash'),
           cardGrenade: document.getElementById('cardGrenade'),
           valGrenade: document.getElementById('valGrenade'),
           cardFlash: document.getElementById('cardFlash'),
@@ -292,19 +290,12 @@ export class GameUI {
           : `${ammoState.secondary.mag} / ${ammoState.secondary.reserve}`;
     }
 
-    const slideCd = Math.max(0, player.slideCooldown ?? 0);
-    if (this.els.valSlide) {
-      this.els.valSlide.textContent = slideCd <= 0.01 ? 'SHIFT' : `${slideCd.toFixed(1)}s`;
+    const dashCd = Math.max(0, player.dashCooldown ?? 0);
+    if (this.els.valDash) {
+      this.els.valDash.textContent = dashCd <= 0.01 ? 'SHIFT / RMB' : `${dashCd.toFixed(1)}s`;
     }
-    this.els.cardSlide?.classList.toggle('ready', slideCd <= 0.01);
-    this.els.cardSlide?.classList.toggle('depleted', slideCd > 0.01);
-
-    const dodgeCd = Math.max(0, player.dodgeCooldown ?? 0);
-    if (this.els.valDodge) {
-      this.els.valDodge.textContent = dodgeCd <= 0.01 ? 'E / RMB' : `${dodgeCd.toFixed(1)}s`;
-    }
-    this.els.cardDodge?.classList.toggle('ready', dodgeCd <= 0.01);
-    this.els.cardDodge?.classList.toggle('depleted', dodgeCd > 0.01);
+    this.els.cardDash?.classList.toggle('ready', dashCd <= 0.01);
+    this.els.cardDash?.classList.toggle('depleted', dashCd > 0.01);
 
     const gCount = player.grenadeCount ?? 0;
     if (this.els.valGrenade) this.els.valGrenade.textContent = `x${gCount}`;

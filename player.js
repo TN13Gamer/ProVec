@@ -5,12 +5,9 @@ export const PLAYER_DEFAULTS = {
   FIRE_INTERVAL: 0.15,
   BULLET_SPEED: 750,
   BULLET_RADIUS: 4,
-  SLIDE_DURATION: 0.26,
-  SLIDE_SPEED: 660,
-  SLIDE_COOLDOWN: 1.1,
-  DODGE_DURATION: 0.24,
-  DODGE_SPEED: 620,
-  DODGE_COOLDOWN: 1.4,
+  DASH_DURATION: 0.25,
+  DASH_SPEED: 650,
+  DASH_COOLDOWN: 1.0,
   GRENADE_COOLDOWN: 4.5,
   FLASHBANG_COOLDOWN: 6.0,
 };
@@ -97,14 +94,10 @@ export class Player {
     this.reloadTimer = 0;
     this.reloadDuration = 0;
 
-    // Slide & Dodge state
-    this.slideTimer = 0;
-    this.slideCooldown = 0;
-    this.slideDir = { x: 1, y: 0 };
-
-    this.dodgeTimer = 0;
-    this.dodgeCooldown = 0;
-    this.dodgeDir = { x: 1, y: 0 };
+    // Unified Slide / Dash state
+    this.dashTimer = 0;
+    this.dashCooldown = 0;
+    this.dashDir = { x: 1, y: 0 };
     this.isInvulnerable = false;
     this.afterimages = [];
 
@@ -223,38 +216,20 @@ export class Player {
   }
 
   /**
-   * Starts a tactical slide in the movement or aim direction.
+   * Starts a tactical slide/dash in the movement or aim direction with brief i-frames.
    * @param {{ x: number, y: number }} move
    */
-  startSlide(move) {
-    if (this.isDead || this.slideTimer > 0 || this.dodgeTimer > 0 || this.slideCooldown > 0) {
+  startDash(move) {
+    if (this.isDead || this.dashTimer > 0 || this.dashCooldown > 0) {
       return false;
     }
     const dir =
       move.x !== 0 || move.y !== 0
         ? { x: move.x, y: move.y }
         : { x: Math.cos(this.angle), y: Math.sin(this.angle) };
-    this.slideDir = dir;
-    this.slideTimer = PLAYER_DEFAULTS.SLIDE_DURATION;
-    this.slideCooldown = PLAYER_DEFAULTS.SLIDE_COOLDOWN;
-    return true;
-  }
-
-  /**
-   * Starts an evasive dodge roll with brief invulnerability frames.
-   * @param {{ x: number, y: number }} move
-   */
-  startDodge(move) {
-    if (this.isDead || this.dodgeTimer > 0 || this.slideTimer > 0 || this.dodgeCooldown > 0) {
-      return false;
-    }
-    const dir =
-      move.x !== 0 || move.y !== 0
-        ? { x: move.x, y: move.y }
-        : { x: Math.cos(this.angle), y: Math.sin(this.angle) };
-    this.dodgeDir = dir;
-    this.dodgeTimer = PLAYER_DEFAULTS.DODGE_DURATION;
-    this.dodgeCooldown = PLAYER_DEFAULTS.DODGE_COOLDOWN;
+    this.dashDir = dir;
+    this.dashTimer = PLAYER_DEFAULTS.DASH_DURATION;
+    this.dashCooldown = PLAYER_DEFAULTS.DASH_COOLDOWN;
     this.isInvulnerable = true;
     return true;
   }
@@ -306,8 +281,7 @@ export class Player {
     }
 
     // Cooldowns & afterimages
-    this.slideCooldown = Math.max(0, this.slideCooldown - dt);
-    this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
+    this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     for (let i = this.afterimages.length - 1; i >= 0; i--) {
       this.afterimages[i].life -= dt;
       if (this.afterimages[i].life <= 0) {
@@ -315,30 +289,23 @@ export class Player {
       }
     }
 
-    // Trigger slide (Shift) or dodge (E / Right Click)
-    if (input.wasKeyPressed('ShiftLeft') || input.wasKeyPressed('ShiftRight')) {
-      this.startSlide(move);
-    } else if (input.wasKeyPressed('KeyE') || input.wasRightClicked?.()) {
-      this.startDodge(move);
+    // Trigger unified Slide / Dash (Shift or Right Click)
+    if (
+      input.wasKeyPressed('ShiftLeft') ||
+      input.wasKeyPressed('ShiftRight') ||
+      input.wasRightClicked?.()
+    ) {
+      this.startDash(move);
     }
 
-    if (this.dodgeTimer > 0) {
-      this.dodgeTimer = Math.max(0, this.dodgeTimer - dt);
-      this.isInvulnerable = this.dodgeTimer > 0;
+    if (this.dashTimer > 0) {
+      this.dashTimer = Math.max(0, this.dashTimer - dt);
+      this.isInvulnerable = this.dashTimer > 0;
       this.isMoving = true;
-      this.x += this.dodgeDir.x * PLAYER_DEFAULTS.DODGE_SPEED * dt;
-      this.y += this.dodgeDir.y * PLAYER_DEFAULTS.DODGE_SPEED * dt;
-      if (Math.random() < 0.65) {
-        this.afterimages.push({ x: this.x, y: this.y, life: 0.14, maxLife: 0.14, color: '#38bdf8' });
-      }
-    } else if (this.slideTimer > 0) {
-      this.slideTimer = Math.max(0, this.slideTimer - dt);
-      this.isInvulnerable = false;
-      this.isMoving = true;
-      this.x += this.slideDir.x * PLAYER_DEFAULTS.SLIDE_SPEED * dt;
-      this.y += this.slideDir.y * PLAYER_DEFAULTS.SLIDE_SPEED * dt;
-      if (Math.random() < 0.65) {
-        this.afterimages.push({ x: this.x, y: this.y, life: 0.12, maxLife: 0.12, color: '#f59e0b' });
+      this.x += this.dashDir.x * PLAYER_DEFAULTS.DASH_SPEED * dt;
+      this.y += this.dashDir.y * PLAYER_DEFAULTS.DASH_SPEED * dt;
+      if (Math.random() < 0.7) {
+        this.afterimages.push({ x: this.x, y: this.y, life: 0.14, maxLife: 0.14, color: '#f59e0b' });
       }
     } else {
       this.isInvulnerable = false;
@@ -362,7 +329,7 @@ export class Player {
     }
 
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
-    if (this.dodgeTimer <= 0 && this.reloadTimer <= 0 && input.isShooting() && this.fireCooldown <= 0) {
+    if (this.reloadTimer <= 0 && input.isShooting() && this.fireCooldown <= 0) {
       this.shoot();
     }
   }
@@ -569,13 +536,10 @@ export class Player {
     if (this.isDead) {
       ctx.rotate(facing * (Math.PI / 2) * this.deathAnim);
       ctx.globalAlpha = 0.85;
-    } else if (this.dodgeTimer > 0) {
-      const rollProgress = 1 - this.dodgeTimer / PLAYER_DEFAULTS.DODGE_DURATION;
-      ctx.rotate(facing * rollProgress * Math.PI * 2);
-      ctx.globalAlpha = 0.85;
-    } else if (this.slideTimer > 0) {
+    } else if (this.dashTimer > 0) {
       ctx.translate(0, 5);
       ctx.rotate(-facing * 0.35);
+      ctx.globalAlpha = 0.88;
     } else {
       ctx.translate(0, -bob);
     }
