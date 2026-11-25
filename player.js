@@ -347,8 +347,9 @@ export class Player {
       this.y += move.y * this.speed * dt;
     }
 
-    this.x = Math.max(this.radius, Math.min(bounds.width - this.radius, this.x));
-    this.y = Math.max(this.radius, Math.min(bounds.height - this.radius, this.y));
+    const margin = this.radius + 10;
+    this.x = Math.max(margin, Math.min(bounds.width - margin, this.x));
+    this.y = Math.max(margin, Math.min(bounds.height - margin, this.y));
 
     const mouse = input.getMousePosition();
     this.angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
