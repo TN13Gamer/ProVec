@@ -116,6 +116,18 @@ body {
   letter-spacing: 0.08em;
 }
 
+.hud-wave-timer {
+  font-size: 13px;
+  font-weight: 800;
+  color: #e5e7eb;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-wave-timer.urgent {
+  color: #ef4444;
+}
+
 .hud-right-group {
   display: flex;
   align-items: stretch;

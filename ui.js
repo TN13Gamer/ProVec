@@ -119,6 +119,7 @@ export class GameUI {
           hudHealthText: document.getElementById('hudHealthText'),
           hudHealthBar: document.getElementById('hudHealthBar'),
           hudWaveText: document.getElementById('hudWaveText'),
+          hudWaveTimer: document.getElementById('hudWaveTimer'),
           hudScoreText: document.getElementById('hudScoreText'),
           btnPause: document.getElementById('btnPause'),
           bossBarWrap: document.getElementById('bossBarWrap'),
@@ -238,6 +239,14 @@ export class GameUI {
     const totalWaves = gameState.totalWaves ?? gameState.waveManager?.waves?.length ?? 5;
     if (this.els.hudWaveText) {
       this.els.hudWaveText.textContent = `WAVE ${wave} / ${totalWaves}`;
+    }
+
+    const waveSec = Math.ceil(gameState.waveManager?.getWaveTimeRemaining?.() ?? 90);
+    const mins = Math.floor(waveSec / 60);
+    const secs = waveSec % 60;
+    if (this.els.hudWaveTimer) {
+      this.els.hudWaveTimer.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      this.els.hudWaveTimer.classList.toggle('urgent', waveSec <= 15);
     }
 
     const score = Math.max(0, Math.floor(gameState.score ?? 0));

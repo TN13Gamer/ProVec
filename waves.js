@@ -64,7 +64,16 @@ export class WaveManager {
     this.spawnedCount = 0;
     this.bossSpawned = false;
     this.spawnTimer = 0;
+    this.waveTimer = 90;
+    this.isTimedOut = false;
     this.isComplete = false;
+  }
+
+  /**
+   * @returns {number} Remaining seconds for the current wave
+   */
+  getWaveTimeRemaining() {
+    return Math.max(0, this.waveTimer);
   }
 
   /**
@@ -109,13 +118,19 @@ export class WaveManager {
    * @param {Enemy[]} enemies
    */
   update(dt, enemies) {
-    if (this.isComplete) {
+    if (this.isComplete || this.isTimedOut) {
       return;
     }
 
     const wave = this.waves[this.currentWaveIndex];
     if (!wave) {
       this.isComplete = true;
+      return;
+    }
+
+    this.waveTimer = Math.max(0, this.waveTimer - dt);
+    if (this.waveTimer <= 0 && !(this.spawnedCount >= wave.totalEnemies && enemies.length === 0)) {
+      this.isTimedOut = true;
       return;
     }
 
@@ -146,6 +161,7 @@ export class WaveManager {
         this.spawnedCount = 0;
         this.bossSpawned = false;
         this.spawnTimer = 1.0;
+        this.waveTimer = 90;
       } else {
         this.isComplete = true;
       }

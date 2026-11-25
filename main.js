@@ -225,14 +225,14 @@ function update(dt) {
   const detonations = player.consumeDetonations();
   for (const det of detonations) {
     if (det.type === 'grenade') {
-      const blastRadius = 155;
+      const blastRadius = 85;
       const blastDamage = 140;
       effects.spawnExplosion(det.x, det.y, {
         color: '#f97316',
         secondaryColor: '#fde047',
-        radius: 140,
-        count: 38,
-        shake: 9,
+        radius: 80,
+        count: 26,
+        shake: 7,
       });
 
       for (let i = gameState.enemies.length - 1; i >= 0; i--) {
@@ -327,6 +327,9 @@ function update(dt) {
       radius: 80,
       shake: 10,
     });
+  } else if (waveManager.isTimedOut) {
+    gameState.state = 'gameover';
+    gameState.isGameOver = true;
   } else if (waveManager.isComplete && gameState.enemies.length === 0) {
     gameState.state = 'victory';
     gameState.isVictory = true;
