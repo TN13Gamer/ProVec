@@ -117,6 +117,9 @@ export class Player {
     this.rageTimer = 0;
     this.rageDuration = 8.0;
 
+    // Out-of-combat health regeneration
+    this.timeSinceLastDamage = 0;
+
     // Collectable Throwables (Grenade & Flashbang)
     this.selectedAccessory = 'grenade';
     this.grenadeCount = 2;
@@ -327,6 +330,12 @@ export class Player {
       return;
     }
 
+    // Regenerate health if undamaged for 5 seconds
+    this.timeSinceLastDamage += dt;
+    if (this.timeSinceLastDamage >= 5.0 && this.health < this.maxHealth) {
+      this.health = Math.min(this.maxHealth, this.health + 12 * dt);
+    }
+
     if (this.isRaging) {
       this.rageTimer = Math.max(0, this.rageTimer - dt);
       this.rage = (this.rageTimer / this.rageDuration) * this.maxRage;
@@ -501,6 +510,7 @@ export class Player {
 
     const effectiveAmount = this.isRaging ? amount * 0.5 : amount;
     this.health = Math.max(0, this.health - effectiveAmount);
+    this.timeSinceLastDamage = 0;
     this.hurtTimer = 0.18;
     this.addRage(10);
     if (this.health <= 0) {
