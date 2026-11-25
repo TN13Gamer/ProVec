@@ -12,6 +12,7 @@ export class EffectsManager {
     this.shakeDuration = 0;
     this.shakeIntensity = 0;
     this.damageFlashAlpha = 0;
+    this.screenFlashAlpha = 0;
   }
 
   /**
@@ -25,6 +26,7 @@ export class EffectsManager {
     this.shakeDuration = 0;
     this.shakeIntensity = 0;
     this.damageFlashAlpha = 0;
+    this.screenFlashAlpha = 0;
   }
 
   /**
@@ -183,6 +185,14 @@ export class EffectsManager {
   }
 
   /**
+   * Triggers a bright tactical flashbang screen flash.
+   * @param {number} [alpha=0.45]
+   */
+  triggerFlashOverlay(alpha = 0.45) {
+    this.screenFlashAlpha = Math.max(this.screenFlashAlpha, Math.min(0.85, alpha));
+  }
+
+  /**
    * Updates all active particles, rings, flashes, and screen shake timers.
    * @param {number} dt
    */
@@ -233,6 +243,10 @@ export class EffectsManager {
 
     if (this.damageFlashAlpha > 0) {
       this.damageFlashAlpha = Math.max(0, this.damageFlashAlpha - dt * 1.4);
+    }
+
+    if (this.screenFlashAlpha > 0) {
+      this.screenFlashAlpha = Math.max(0, this.screenFlashAlpha - dt * 1.6);
     }
   }
 
@@ -313,20 +327,25 @@ export class EffectsManager {
    * @param {number} height
    */
   renderScreenOverlay(ctx, width, height) {
-    if (this.damageFlashAlpha <= 0.005) {
-      return;
+    if (this.damageFlashAlpha > 0.005) {
+      ctx.save();
+      const cx = width / 2;
+      const cy = height / 2;
+      const outerRadius = Math.hypot(cx, cy);
+      const grad = ctx.createRadialGradient(cx, cy, outerRadius * 0.45, cx, cy, outerRadius);
+      grad.addColorStop(0, 'rgba(239, 68, 68, 0)');
+      grad.addColorStop(1, `rgba(239, 68, 68, ${this.damageFlashAlpha})`);
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
     }
 
-    ctx.save();
-    const cx = width / 2;
-    const cy = height / 2;
-    const outerRadius = Math.hypot(cx, cy);
-    const grad = ctx.createRadialGradient(cx, cy, outerRadius * 0.45, cx, cy, outerRadius);
-    grad.addColorStop(0, 'rgba(239, 68, 68, 0)');
-    grad.addColorStop(1, `rgba(239, 68, 68, ${this.damageFlashAlpha})`);
-
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, width, height);
-    ctx.restore();
+    if (this.screenFlashAlpha > 0.005) {
+      ctx.save();
+      ctx.fillStyle = `rgba(224, 242, 254, ${this.screenFlashAlpha})`;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
   }
 }

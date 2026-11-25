@@ -4,14 +4,47 @@ export const SURVIVAL_WAVES = [
   {
     wave: 1,
     totalEnemies: 8,
-    spawnInterval: 1.4,
+    spawnInterval: 1.3,
     types: ['runner'],
+    speedMultiplier: 1.0,
+    healthMultiplier: 1.0,
+    hasBoss: false,
   },
   {
     wave: 2,
     totalEnemies: 14,
     spawnInterval: 1.0,
     types: ['runner', 'brute'],
+    speedMultiplier: 1.08,
+    healthMultiplier: 1.1,
+    hasBoss: false,
+  },
+  {
+    wave: 3,
+    totalEnemies: 20,
+    spawnInterval: 0.8,
+    types: ['runner', 'brute'],
+    speedMultiplier: 1.16,
+    healthMultiplier: 1.25,
+    hasBoss: false,
+  },
+  {
+    wave: 4,
+    totalEnemies: 26,
+    spawnInterval: 0.65,
+    types: ['runner', 'brute'],
+    speedMultiplier: 1.25,
+    healthMultiplier: 1.4,
+    hasBoss: false,
+  },
+  {
+    wave: 5,
+    totalEnemies: 18,
+    spawnInterval: 0.9,
+    types: ['runner', 'brute'],
+    speedMultiplier: 1.3,
+    healthMultiplier: 1.5,
+    hasBoss: true,
   },
 ];
 
@@ -29,6 +62,7 @@ export class WaveManager {
   reset() {
     this.currentWaveIndex = 0;
     this.spawnedCount = 0;
+    this.bossSpawned = false;
     this.spawnTimer = 0;
     this.isComplete = false;
   }
@@ -42,11 +76,12 @@ export class WaveManager {
 
   /**
    * Spawns a single enemy just outside one of the four arena edges.
-   * @param {'runner' | 'brute'} type
+   * @param {'runner' | 'brute' | 'boss'} type
+   * @param {{ speedMultiplier?: number, healthMultiplier?: number }} [scaling]
    * @returns {Enemy}
    */
-  spawnEnemyAtEdge(type) {
-    const margin = 36;
+  spawnEnemyAtEdge(type, scaling = {}) {
+    const margin = type === 'boss' ? 56 : 36;
     const edge = Math.floor(Math.random() * 4);
     let x = 0;
     let y = 0;
@@ -65,7 +100,7 @@ export class WaveManager {
       y = Math.random() * this.bounds.height;
     }
 
-    return new Enemy(x, y, type);
+    return new Enemy(x, y, type, scaling);
   }
 
   /**
@@ -84,11 +119,21 @@ export class WaveManager {
       return;
     }
 
+    const scaling = {
+      speedMultiplier: wave.speedMultiplier ?? 1,
+      healthMultiplier: wave.healthMultiplier ?? 1,
+    };
+
+    if (wave.hasBoss && !this.bossSpawned) {
+      enemies.push(this.spawnEnemyAtEdge('boss', scaling));
+      this.bossSpawned = true;
+    }
+
     if (this.spawnedCount < wave.totalEnemies) {
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
         const type = wave.types[Math.floor(Math.random() * wave.types.length)];
-        enemies.push(this.spawnEnemyAtEdge(type));
+        enemies.push(this.spawnEnemyAtEdge(type, scaling));
         this.spawnedCount += 1;
         this.spawnTimer = wave.spawnInterval;
       }
@@ -99,7 +144,8 @@ export class WaveManager {
       if (this.currentWaveIndex + 1 < this.waves.length) {
         this.currentWaveIndex += 1;
         this.spawnedCount = 0;
-        this.spawnTimer = 0.5;
+        this.bossSpawned = false;
+        this.spawnTimer = 1.0;
       } else {
         this.isComplete = true;
       }

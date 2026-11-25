@@ -11,6 +11,8 @@ export const PLAYER_DEFAULTS = {
   DODGE_DURATION: 0.24,
   DODGE_SPEED: 620,
   DODGE_COOLDOWN: 1.4,
+  GRENADE_COOLDOWN: 4.5,
+  FLASHBANG_COOLDOWN: 6.0,
 };
 
 export const WEAPONS = {
@@ -93,6 +95,63 @@ export class Player {
     this.dodgeDir = { x: 1, y: 0 };
     this.isInvulnerable = false;
     this.afterimages = [];
+
+    // Throwables (Grenade & Flashbang)
+    this.grenadeCooldown = 0;
+    this.flashbangCooldown = 0;
+    this.throwables = [];
+    this.detonatedThrowables = [];
+  }
+
+  /**
+   * Throws a grenade or flashbang toward (targetX, targetY).
+   * @param {'grenade' | 'flashbang'} type
+   * @param {number} targetX
+   * @param {number} targetY
+   * @returns {boolean}
+   */
+  throwGadget(type, targetX, targetY) {
+    if (this.isDead) return false;
+
+    if (type === 'grenade') {
+      if (this.grenadeCooldown > 0) return false;
+      this.grenadeCooldown = PLAYER_DEFAULTS.GRENADE_COOLDOWN;
+    } else if (type === 'flashbang') {
+      if (this.flashbangCooldown > 0) return false;
+      this.flashbangCooldown = PLAYER_DEFAULTS.FLASHBANG_COOLDOWN;
+    } else {
+      return false;
+    }
+
+    const dx = targetX - this.x;
+    const dy = targetY - this.y;
+    const dist = Math.hypot(dx, dy);
+    const angle = dist > 0.001 ? Math.atan2(dy, dx) : this.angle;
+    const fuse = type === 'grenade' ? 0.48 : 0.36;
+    const throwDist = Math.min(320, Math.max(80, dist));
+    const speed = throwDist / fuse;
+
+    this.throwables.push({
+      type,
+      x: this.x + Math.cos(angle) * (this.radius + 6),
+      y: this.y + Math.sin(angle) * (this.radius + 6),
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      fuse,
+      maxFuse: fuse,
+    });
+    return true;
+  }
+
+  /**
+   * Returns and clears throwables that detonated this frame.
+   * @returns {Array<{ type: 'grenade' | 'flashbang', x: number, y: number }>}
+   */
+  consumeDetonations() {
+    if (this.detonatedThrowables.length === 0) return [];
+    const out = this.detonatedThrowables.slice();
+    this.detonatedThrowables.length = 0;
+    return out;
   }
 
   /**
@@ -159,9 +218,12 @@ export class Player {
    */
   update(dt, input, bounds) {
     this._updateBullets(dt, bounds);
+    this._updateThrowables(dt, bounds);
     this.animTime += dt;
     this.shootAnimTimer = Math.max(0, this.shootAnimTimer - dt);
     this.hurtTimer = Math.max(0, this.hurtTimer - dt);
+    this.grenadeCooldown = Math.max(0, this.grenadeCooldown - dt);
+    this.flashbangCooldown = Math.max(0, this.flashbangCooldown - dt);
 
     if (this.isDead) {
       this.isMoving = false;
@@ -228,6 +290,13 @@ export class Player {
     const mouse = input.getMousePosition();
     this.angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
 
+    // Throwables: G for Grenade, F for Flashbang
+    if (input.wasKeyPressed('KeyG')) {
+      this.throwGadget('grenade', mouse.x, mouse.y);
+    } else if (input.wasKeyPressed('KeyF')) {
+      this.throwGadget('flashbang', mouse.x, mouse.y);
+    }
+
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
     if (this.dodgeTimer <= 0 && input.isShooting() && this.fireCooldown <= 0) {
       this.shoot();
@@ -293,6 +362,22 @@ export class Player {
     }
 
     return this.health;
+  }
+
+  _updateThrowables(dt, bounds) {
+    for (let i = this.throwables.length - 1; i >= 0; i--) {
+      const t = this.throwables[i];
+      t.x = Math.max(12, Math.min(bounds.width - 12, t.x + t.vx * dt));
+      t.y = Math.max(12, Math.min(bounds.height - 12, t.y + t.vy * dt));
+      t.vx *= Math.pow(0.95, dt * 60);
+      t.vy *= Math.pow(0.95, dt * 60);
+      t.fuse -= dt;
+
+      if (t.fuse <= 0) {
+        this.detonatedThrowables.push({ type: t.type, x: t.x, y: t.y });
+        this.throwables.splice(i, 1);
+      }
+    }
   }
 
   /**
@@ -374,6 +459,21 @@ export class Player {
       ctx.beginPath();
       ctx.arc(ghost.x, ghost.y, this.radius * 0.9, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+    }
+
+    // In-flight Grenades & Flashbangs
+    for (const t of this.throwables) {
+      const isGrenade = t.type === 'grenade';
+      const blink = Math.sin(this.animTime * 28) > 0;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = isGrenade ? (blink ? '#ef4444' : '#f97316') : (blink ? '#ffffff' : '#38bdf8');
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
       ctx.restore();
     }
 

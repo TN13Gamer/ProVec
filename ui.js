@@ -323,10 +323,12 @@ export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = D
   const isPrimary = weaponKey === 'primary';
   const slideCd = Math.max(0, player.slideCooldown ?? 0);
   const dodgeCd = Math.max(0, player.dodgeCooldown ?? 0);
+  const grenadeCd = Math.max(0, player.grenadeCooldown ?? 0);
+  const flashCd = Math.max(0, player.flashbangCooldown ?? 0);
 
   const loadX = 24;
   const loadY = height - 74;
-  const loadW = 430;
+  const loadW = 586;
   const loadH = 54;
 
   roundedRectPath(ctx, loadX, loadY, loadW, loadH, 8);
@@ -368,10 +370,12 @@ export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = D
   ctx.fillStyle = !isPrimary ? '#f8fafc' : '#94a3b8';
   ctx.fillText('SCATTER GUN', loadX + 140, loadY + 26);
 
-  // Slide & Dodge indicators
+  // Slide, Dodge, Grenade & Flashbang indicators
   const abilities = [
     { label: 'SLIDE', key: 'SHIFT', cd: slideCd, x: loadX + 272, color: '#f59e0b' },
     { label: 'DODGE', key: 'E/RMB', cd: dodgeCd, x: loadX + 350, color: '#38bdf8' },
+    { label: 'GRENADE', key: 'G', cd: grenadeCd, x: loadX + 428, color: '#ef4444' },
+    { label: 'FLASH', key: 'F', cd: flashCd, x: loadX + 506, color: '#e2e8f0' },
   ];
   for (const ab of abilities) {
     const ready = ab.cd <= 0.01;
@@ -389,6 +393,49 @@ export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = D
     ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
     ctx.fillStyle = ready ? '#f8fafc' : '#94a3b8';
     ctx.fillText(ready ? ab.key : `${ab.cd.toFixed(1)}s`, ab.x + 35, loadY + 27);
+  }
+
+  // --- 5. Boss Health Bar (Top-Center below Wave) ---
+  const boss = Array.isArray(gameState.enemies)
+    ? gameState.enemies.find((e) => e.type === 'boss' && !e.isDead)
+    : null;
+  if (boss) {
+    const bossBarW = 420;
+    const bossBarH = 38;
+    const bossBarX = width / 2 - bossBarW / 2;
+    const bossBarY = 76;
+    const bossRatio = Math.max(0, Math.min(1, boss.health / Math.max(1, boss.maxHealth)));
+
+    roundedRectPath(ctx, bossBarX, bossBarY, bossBarW, bossBarH, 8);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(168, 85, 247, 0.75)';
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font = '800 11px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = '#e879f9';
+    ctx.fillText('BOSS — OVERLORD JUGGERNAUT', bossBarX + 12, bossBarY + 6);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(`${Math.ceil(boss.health)} / ${boss.maxHealth}`, bossBarX + bossBarW - 12, bossBarY + 6);
+
+    const trackX = bossBarX + 12;
+    const trackY = bossBarY + 22;
+    const trackW = bossBarW - 24;
+    const trackH = 9;
+    roundedRectPath(ctx, trackX, trackY, trackW, trackH, 4);
+    ctx.fillStyle = '#090d1f';
+    ctx.fill();
+
+    if (bossRatio > 0) {
+      roundedRectPath(ctx, trackX, trackY, Math.max(6, trackW * bossRatio), trackH, 4);
+      ctx.fillStyle = '#a855f7';
+      ctx.fill();
+    }
   }
 
   ctx.restore();
@@ -485,9 +532,9 @@ export function renderMainMenu(ctx, width = DEFAULT_WIDTH, height = DEFAULT_HEIG
   // Controls info
   ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
   ctx.fillStyle = COLORS.textMuted;
-  ctx.fillText('WASD — Move   |   MOUSE / SPACE — Aim & Fire   |   1 / 2 / Q — Switch Gun', cx, cardY + 178);
-  ctx.fillText('SHIFT — Tactical Slide   |   E / RIGHT CLICK — Dodge Roll', cx, cardY + 206);
-  ctx.fillText('P / ESC — Pause   |   R — Quick Restart', cx, cardY + 234);
+  ctx.fillText('WASD — Move   |   MOUSE / SPACE — Aim & Fire   |   1 / 2 / Q — Switch Gun', cx, cardY + 174);
+  ctx.fillText('SHIFT — Slide   |   E / RMB — Dodge   |   G — Grenade   |   F — Flashbang', cx, cardY + 202);
+  ctx.fillText('P / ESC — Pause   |   R — Quick Restart', cx, cardY + 230);
 
   // Start Button
   const btnW = 240;

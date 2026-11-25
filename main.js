@@ -2,7 +2,7 @@ import { InputHandler } from './input.js';
 import { Player } from './player.js';
 import { updateEnemies, renderEnemies } from './enemy.js';
 import { WaveManager, SURVIVAL_WAVES } from './waves.js';
-import { resolveCombatCollisions } from './collision.js';
+import { resolveCombatCollisions, checkCircleCollision } from './collision.js';
 import { GameUI } from './ui.js';
 import { EffectsManager } from './effects.js';
 
@@ -43,6 +43,7 @@ const gameState = {
   isVictory: false,
   player,
   enemies: [],
+  enemyBullets: [],
   bullets: player.bullets,
   waveManager,
 };
@@ -63,6 +64,7 @@ export function startGame() {
 export function restart() {
   player.reset(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
   gameState.enemies.length = 0;
+  gameState.enemyBullets.length = 0;
   gameState.bullets = player.bullets;
   waveManager.reset();
   effects.reset();
@@ -147,7 +149,82 @@ function update(dt) {
   waveManager.update(dt, gameState.enemies);
   gameState.wave = waveManager.getCurrentWaveNumber();
 
-  updateEnemies(gameState.enemies, dt, player);
+  updateEnemies(gameState.enemies, dt, player, gameState.enemyBullets);
+
+  // Update Boss projectiles and check hits against player
+  for (let i = gameState.enemyBullets.length - 1; i >= 0; i--) {
+    const eb = gameState.enemyBullets[i];
+    eb.x += eb.vx * dt;
+    eb.y += eb.vy * dt;
+
+    if (
+      eb.x < -eb.radius ||
+      eb.x > CANVAS_WIDTH + eb.radius ||
+      eb.y < -eb.radius ||
+      eb.y > CANVAS_HEIGHT + eb.radius
+    ) {
+      gameState.enemyBullets.splice(i, 1);
+      continue;
+    }
+
+    if (!player.isDead && checkCircleCollision(eb, player)) {
+      player.takeDamage(eb.damage);
+      effects.spawnHit(eb.x, eb.y, { color: '#a855f7' });
+      gameState.enemyBullets.splice(i, 1);
+    }
+  }
+
+  // Handle Grenade & Flashbang detonations
+  const detonations = player.consumeDetonations();
+  for (const det of detonations) {
+    if (det.type === 'grenade') {
+      const blastRadius = 155;
+      const blastDamage = 140;
+      effects.spawnExplosion(det.x, det.y, {
+        color: '#f97316',
+        secondaryColor: '#fde047',
+        radius: 140,
+        count: 38,
+        shake: 9,
+      });
+
+      for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+        const enemy = gameState.enemies[i];
+        const dist = Math.hypot(enemy.x - det.x, enemy.y - det.y);
+        if (dist <= blastRadius + enemy.radius) {
+          enemy.takeDamage(blastDamage);
+          if (enemy.isDead) {
+            const pts = enemy.type === 'boss' ? 1500 : enemy.type === 'brute' ? 250 : 100;
+            gameState.score += pts;
+            effects.spawnExplosion(enemy.x, enemy.y, {
+              color: enemy.color,
+              count: enemy.type === 'boss' ? 45 : 22,
+              radius: enemy.type === 'boss' ? 90 : 48,
+              shake: enemy.type === 'boss' ? 10 : 4,
+            });
+            gameState.enemies.splice(i, 1);
+          }
+        }
+      }
+    } else if (det.type === 'flashbang') {
+      const flashRadius = 220;
+      effects.spawnExplosion(det.x, det.y, {
+        color: '#e0f2fe',
+        secondaryColor: '#ffffff',
+        radius: 170,
+        count: 26,
+        shake: 4,
+      });
+      effects.triggerFlashOverlay(0.45);
+
+      for (const enemy of gameState.enemies) {
+        const dist = Math.hypot(enemy.x - det.x, enemy.y - det.y);
+        if (dist <= flashRadius + enemy.radius) {
+          enemy.applyStun(3.0);
+        }
+      }
+    }
+  }
 
   // Snapshot enemy health before combat resolution to trigger hit/kill effects and score
   const enemySnapshots = gameState.enemies.map((enemy) => ({
@@ -160,14 +237,15 @@ function update(dt) {
   for (const snap of enemySnapshots) {
     const { enemy, prevHealth } = snap;
     if (enemy.isDead) {
+      const isBoss = enemy.type === 'boss';
       const isBrute = enemy.type === 'brute';
       effects.spawnExplosion(enemy.x, enemy.y, {
         color: enemy.color,
-        count: isBrute ? 30 : 20,
-        radius: isBrute ? 68 : 48,
-        shake: isBrute ? 7 : 4,
+        count: isBoss ? 48 : isBrute ? 30 : 20,
+        radius: isBoss ? 100 : isBrute ? 68 : 48,
+        shake: isBoss ? 12 : isBrute ? 7 : 4,
       });
-      gameState.score += isBrute ? 250 : 100;
+      gameState.score += isBoss ? 1500 : isBrute ? 250 : 100;
     } else if (enemy.health < prevHealth) {
       effects.spawnHit(enemy.x, enemy.y, { color: '#fde047' });
     }
@@ -202,6 +280,22 @@ function render() {
   if (gameState.state !== 'menu') {
     effects.beginShake(ctx);
     renderEnemies(gameState.enemies, ctx);
+
+    // Boss plasma projectiles
+    if (gameState.enemyBullets.length > 0) {
+      ctx.save();
+      for (const eb of gameState.enemyBullets) {
+        ctx.beginPath();
+        ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#c084fc';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     player.render(ctx);
     effects.render(ctx);
     effects.endShake(ctx);
