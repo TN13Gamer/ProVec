@@ -110,6 +110,7 @@ export class GameUI {
     this.onRestart = callbacks.onRestart ?? null;
     this.onResume = callbacks.onResume ?? null;
     this.onPause = callbacks.onPause ?? null;
+    this.onDifficultyChange = callbacks.onDifficultyChange ?? null;
 
     this.time = 0;
     this.currentState = 'menu';
@@ -150,6 +151,8 @@ export class GameUI {
           menuWaveLabel: document.getElementById('menuWaveLabel'),
           menuFinalWave: document.getElementById('menuFinalWave'),
           menuControls: document.getElementById('menuControls'),
+          difficultySelector: document.getElementById('difficultySelector'),
+          diffButtons: document.querySelectorAll('.diff-btn'),
           btnStart: document.getElementById('btnStart'),
           btnResume: document.getElementById('btnResume'),
           btnRestart: document.getElementById('btnRestart'),
@@ -176,6 +179,15 @@ export class GameUI {
       } else if (this.currentState === 'paused') {
         this.onResume?.();
       }
+    });
+
+    this.els.diffButtons?.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const level = btn.dataset.diff;
+        if (!level) return;
+        this.els.diffButtons.forEach((b) => b.classList.toggle('active', b === btn));
+        this.onDifficultyChange?.(level);
+      });
     });
   }
 
@@ -385,15 +397,17 @@ export class GameUI {
       this.els.menuSubtitle.textContent = 'TOP-DOWN SCI-FI SURVIVAL ARENA';
       this.els.menuStats?.classList.add('hidden');
       this.els.menuControls?.classList.remove('hidden');
+      this.els.difficultySelector?.classList.remove('hidden');
       this.els.btnStart?.classList.remove('hidden');
       this.els.btnResume?.classList.add('hidden');
       this.els.btnRestart?.classList.add('hidden');
-      this.els.menuHint.textContent = 'Click START MISSION or press ENTER to deploy';
+      this.els.menuHint.textContent = 'Select difficulty & click START MISSION or press ENTER';
     } else if (state === 'paused') {
       this.els.menuTitle.textContent = 'PAUSED';
       this.els.menuSubtitle.textContent = 'MISSION SUSPENDED';
       this.els.menuStats?.classList.add('hidden');
       this.els.menuControls?.classList.remove('hidden');
+      this.els.difficultySelector?.classList.add('hidden');
       this.els.btnStart?.classList.add('hidden');
       this.els.btnResume?.classList.remove('hidden');
       this.els.btnRestart?.classList.remove('hidden');
@@ -408,6 +422,7 @@ export class GameUI {
       this.els.menuWaveLabel.textContent = 'WAVE REACHED';
       this.els.menuFinalWave.textContent = `${wave} / ${totalWaves}`;
       this.els.menuControls?.classList.add('hidden');
+      this.els.difficultySelector?.classList.add('hidden');
       this.els.btnStart?.classList.add('hidden');
       this.els.btnResume?.classList.add('hidden');
       this.els.btnRestart?.classList.remove('hidden');
@@ -422,6 +437,7 @@ export class GameUI {
       this.els.menuWaveLabel.textContent = 'WAVES SURVIVED';
       this.els.menuFinalWave.textContent = `${totalWaves} / ${totalWaves}`;
       this.els.menuControls?.classList.add('hidden');
+      this.els.difficultySelector?.classList.add('hidden');
       this.els.btnStart?.classList.add('hidden');
       this.els.btnResume?.classList.add('hidden');
       this.els.btnRestart?.classList.remove('hidden');

@@ -42,7 +42,8 @@ const waveManager = new WaveManager(bounds, SURVIVAL_WAVES);
 const effects = new EffectsManager();
 
 const gameState = {
-  state: 'menu', // 'menu' | 'playing' | 'gameover' | 'victory'
+  state: 'menu', // 'menu' | 'playing' | 'paused' | 'gameover' | 'victory'
+  difficulty: 'easy',
   score: 0,
   wave: 1,
   totalWaves: SURVIVAL_WAVES.length,
@@ -79,6 +80,7 @@ export function restart() {
   gameState.pickups.length = 0;
   gameState.bullets = player.bullets;
   supplyDropTimer = 8.5;
+  waveManager.setDifficulty(gameState.difficulty);
   waveManager.reset();
   effects.reset();
 
@@ -112,6 +114,10 @@ const ui = new GameUI(canvas, {
   onRestart: restart,
   onResume: resumeGame,
   onPause: pauseGame,
+  onDifficultyChange: (level) => {
+    gameState.difficulty = level;
+    waveManager.setDifficulty(level);
+  },
 });
 
 /**

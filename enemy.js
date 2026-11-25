@@ -41,13 +41,15 @@ export class Enemy {
   /**
    * @param {number} x
    * @param {number} y
-   * @param {'runner' | 'brute' | 'boss'} [type='runner']
-   * @param {{ speedMultiplier?: number, healthMultiplier?: number }} [scaling]
+   * @param {'runner' | 'brute' | 'spitter' | 'boss'} [type='runner']
+   * @param {{ speedMultiplier?: number, healthMultiplier?: number, damageMultiplier?: number, fireRateMultiplier?: number }} [scaling]
    */
   constructor(x, y, type = 'runner', scaling = {}) {
     const config = ENEMY_TYPES[type] || ENEMY_TYPES.runner;
     const speedMult = scaling.speedMultiplier ?? 1;
     const healthMult = scaling.healthMultiplier ?? 1;
+    const damageMult = scaling.damageMultiplier ?? 1;
+    const fireRateMult = scaling.fireRateMultiplier ?? 1;
 
     this.x = x;
     this.y = y;
@@ -56,12 +58,14 @@ export class Enemy {
     this.speed = config.speed * speedMult;
     this.maxHealth = Math.round(config.maxHealth * healthMult);
     this.health = this.maxHealth;
-    this.damage = config.damage;
-    this.attackInterval = config.attackInterval;
+    this.damage = Math.round(config.damage * damageMult);
+    this.attackInterval = config.attackInterval / fireRateMult;
+    this.fireRateMultiplier = fireRateMult;
+    this.damageMultiplier = damageMult;
     this.attackCooldown = 0;
     this.stunTimer = 0;
-    this.bossFireCooldown = 1.65;
-    this.rangedFireCooldown = 1.1 + Math.random() * 0.8;
+    this.bossFireCooldown = 2.0 / fireRateMult;
+    this.rangedFireCooldown = (1.1 + Math.random() * 0.8) / fireRateMult;
     this.strafeDir = Math.random() < 0.5 ? 1 : -1;
     this.lungeTimer = 0;
     this.lungeCooldown = 0;
@@ -113,7 +117,7 @@ export class Enemy {
     this.lungeCooldown = Math.max(0, this.lungeCooldown - dt);
     if (this.type === 'runner' && dist < 170 && dist > 40 && this.lungeCooldown <= 0) {
       this.lungeTimer = 0.22;
-      this.lungeCooldown = 2.8;
+      this.lungeCooldown = 2.8 / this.fireRateMultiplier;
     }
 
     let currentSpeed = this.speed;
@@ -156,10 +160,10 @@ export class Enemy {
           vx: Math.cos(angle) * 300,
           vy: Math.sin(angle) * 300,
           radius: 5.5,
-          damage: 11,
+          damage: Math.round(11 * this.damageMultiplier),
           color: '#f43f5e',
         });
-        this.rangedFireCooldown = 2.3;
+        this.rangedFireCooldown = 2.3 / this.fireRateMultiplier;
       }
     }
 
@@ -178,10 +182,10 @@ export class Enemy {
             vx: Math.cos(angle) * 260,
             vy: Math.sin(angle) * 260,
             radius: 7,
-            damage: 15,
+            damage: Math.round(15 * this.damageMultiplier),
           });
         }
-        this.bossFireCooldown = 2.4;
+        this.bossFireCooldown = 2.4 / this.fireRateMultiplier;
       }
     }
   }

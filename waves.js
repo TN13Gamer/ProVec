@@ -1,5 +1,32 @@
 import { Enemy } from './enemy.js';
 
+export const DIFFICULTIES = {
+  easy: {
+    label: 'EASY',
+    speedMultiplier: 1.0,
+    healthMultiplier: 1.0,
+    damageMultiplier: 1.0,
+    fireRateMultiplier: 1.0,
+    spawnRateMultiplier: 1.0,
+  },
+  medium: {
+    label: 'MEDIUM',
+    speedMultiplier: 1.18,
+    healthMultiplier: 1.15,
+    damageMultiplier: 1.25,
+    fireRateMultiplier: 1.25,
+    spawnRateMultiplier: 1.15,
+  },
+  hard: {
+    label: 'HARD',
+    speedMultiplier: 1.38,
+    healthMultiplier: 1.35,
+    damageMultiplier: 1.5,
+    fireRateMultiplier: 1.5,
+    spawnRateMultiplier: 1.35,
+  },
+};
+
 export const SURVIVAL_WAVES = [
   {
     wave: 1,
@@ -56,7 +83,20 @@ export class WaveManager {
   constructor(bounds, waves = SURVIVAL_WAVES) {
     this.bounds = bounds;
     this.waves = waves;
+    this.difficultyKey = 'easy';
+    this.difficulty = DIFFICULTIES.easy;
     this.reset();
+  }
+
+  /**
+   * Sets difficulty level ('easy' | 'medium' | 'hard').
+   * @param {'easy' | 'medium' | 'hard'} level
+   */
+  setDifficulty(level) {
+    if (level in DIFFICULTIES) {
+      this.difficultyKey = level;
+      this.difficulty = DIFFICULTIES[level];
+    }
   }
 
   reset() {
@@ -134,9 +174,12 @@ export class WaveManager {
       return;
     }
 
+    const diff = this.difficulty || DIFFICULTIES.easy;
     const scaling = {
-      speedMultiplier: wave.speedMultiplier ?? 1,
-      healthMultiplier: wave.healthMultiplier ?? 1,
+      speedMultiplier: (wave.speedMultiplier ?? 1) * diff.speedMultiplier,
+      healthMultiplier: (wave.healthMultiplier ?? 1) * diff.healthMultiplier,
+      damageMultiplier: diff.damageMultiplier,
+      fireRateMultiplier: diff.fireRateMultiplier,
     };
 
     if (wave.hasBoss && !this.bossSpawned) {
@@ -150,7 +193,7 @@ export class WaveManager {
         const type = wave.types[Math.floor(Math.random() * wave.types.length)];
         enemies.push(this.spawnEnemyAtEdge(type, scaling));
         this.spawnedCount += 1;
-        this.spawnTimer = wave.spawnInterval;
+        this.spawnTimer = wave.spawnInterval / diff.spawnRateMultiplier;
       }
       return;
     }
