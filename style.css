@@ -336,6 +336,15 @@ canvas {
   border-color: #3b4450;
 }
 
+.ability-card.selected {
+  background: #231912;
+  border-color: #f59e0b;
+}
+
+.ability-card.selected .ability-label {
+  color: #fbbf24;
+}
+
 .ability-card.depleted {
   opacity: 0.45;
 }

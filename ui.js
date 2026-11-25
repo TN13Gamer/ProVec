@@ -348,20 +348,23 @@ export class GameUI {
 
     const dashCd = Math.max(0, player.dashCooldown ?? 0);
     if (this.els.valDash) {
-      this.els.valDash.textContent = dashCd <= 0.01 ? 'SHIFT / RMB' : `${dashCd.toFixed(1)}s`;
+      this.els.valDash.textContent = dashCd <= 0.01 ? 'SHIFT' : `${dashCd.toFixed(1)}s`;
     }
     this.els.cardDash?.classList.toggle('ready', dashCd <= 0.01);
     this.els.cardDash?.classList.toggle('depleted', dashCd > 0.01);
 
+    const selectedAcc = player.selectedAccessory ?? 'grenade';
     const gCount = player.grenadeCount ?? 0;
     if (this.els.valGrenade) this.els.valGrenade.textContent = `x${gCount}`;
     this.els.cardGrenade?.classList.toggle('ready', gCount > 0);
     this.els.cardGrenade?.classList.toggle('depleted', gCount <= 0);
+    this.els.cardGrenade?.classList.toggle('selected', selectedAcc === 'grenade');
 
     const fCount = player.flashbangCount ?? 0;
     if (this.els.valFlash) this.els.valFlash.textContent = `x${fCount}`;
     this.els.cardFlash?.classList.toggle('ready', fCount > 0);
     this.els.cardFlash?.classList.toggle('depleted', fCount <= 0);
+    this.els.cardFlash?.classList.toggle('selected', selectedAcc === 'flashbang');
   }
 
   _updateMenuOverlay(gameState, state) {

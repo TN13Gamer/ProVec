@@ -111,12 +111,20 @@ export class Player {
     this.knockVy = 0;
 
     // Collectable Throwables (Grenade & Flashbang)
+    this.selectedAccessory = 'grenade';
     this.grenadeCount = 2;
     this.flashbangCount = 2;
     this.grenadeCooldown = 0;
     this.flashbangCooldown = 0;
     this.throwables = [];
     this.detonatedThrowables = [];
+  }
+
+  /**
+   * Toggles the active throwable accessory between Grenade and Flashbang.
+   */
+  toggleAccessory() {
+    this.selectedAccessory = this.selectedAccessory === 'grenade' ? 'flashbang' : 'grenade';
   }
 
   /**
@@ -291,13 +299,11 @@ export class Player {
 
     const move = input.getMovementVector();
 
-    // Weapon switching (1, 2, Q, or Mouse Wheel) & Reload (R)
-    if (input.wasKeyPressed('Digit1')) {
-      this.setWeapon('primary');
-    } else if (input.wasKeyPressed('Digit2')) {
-      this.setWeapon('secondary');
-    } else if (input.wasKeyPressed('KeyQ') || input.getWheelDelta?.() !== 0) {
+    // Weapon switching (Mouse Scroll / 1 / Q), Accessory switch (2), & Reload (R)
+    if (input.getWheelDelta?.() !== 0 || input.wasKeyPressed('KeyQ') || input.wasKeyPressed('Digit1')) {
       this.toggleWeapon();
+    } else if (input.wasKeyPressed('Digit2')) {
+      this.toggleAccessory();
     } else if (input.wasKeyPressed('KeyR')) {
       this.startReload();
     }
@@ -323,12 +329,8 @@ export class Player {
       }
     }
 
-    // Trigger unified Slide / Dash (Shift or Right Click)
-    if (
-      input.wasKeyPressed('ShiftLeft') ||
-      input.wasKeyPressed('ShiftRight') ||
-      input.wasRightClicked?.()
-    ) {
+    // Trigger Dash (Shift)
+    if (input.wasKeyPressed('ShiftLeft') || input.wasKeyPressed('ShiftRight')) {
       this.startDash(move);
     }
 
@@ -367,10 +369,14 @@ export class Player {
     const mouse = input.getMousePosition();
     this.angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
 
-    // Throwables: G for Grenade, F for Flashbang
-    if (input.wasKeyPressed('KeyG')) {
+    // Throw selected accessory on Right Click (G/F also work directly)
+    if (input.wasRightClicked?.()) {
+      this.throwGadget(this.selectedAccessory, mouse.x, mouse.y);
+    } else if (input.wasKeyPressed('KeyG')) {
+      this.selectedAccessory = 'grenade';
       this.throwGadget('grenade', mouse.x, mouse.y);
     } else if (input.wasKeyPressed('KeyF')) {
+      this.selectedAccessory = 'flashbang';
       this.throwGadget('flashbang', mouse.x, mouse.y);
     }
 
