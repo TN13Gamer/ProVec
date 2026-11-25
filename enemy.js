@@ -5,8 +5,8 @@ export const ENEMY_TYPES = {
     maxHealth: 40,
     damage: 14,
     attackInterval: 0.42,
-    color: '#f97316',
-    strokeColor: '#ffedd5',
+    color: '#84cc16',
+    strokeColor: '#d9f99d',
   },
   brute: {
     radius: 26,
@@ -15,7 +15,7 @@ export const ENEMY_TYPES = {
     damage: 28,
     attackInterval: 0.72,
     color: '#dc2626',
-    strokeColor: '#fee2e2',
+    strokeColor: '#fca5a5',
   },
   boss: {
     radius: 44,
@@ -54,6 +54,7 @@ export class Enemy {
     this.bossFireCooldown = 1.65;
     this.lungeTimer = 0;
     this.lungeCooldown = 0;
+    this.angle = 0;
     this.animTime = 0;
     this.color = config.color;
     this.strokeColor = config.strokeColor;
@@ -111,6 +112,7 @@ export class Enemy {
     }
 
     if (dist > 0.001) {
+      this.angle = Math.atan2(dy, dx);
       this.x += (dx / dist) * currentSpeed * dt;
       this.y += (dy / dist) * currentSpeed * dt;
     }
@@ -176,40 +178,191 @@ export class Enemy {
     }
 
     ctx.save();
+    ctx.translate(this.x, this.y);
+
+    // Ground shadow
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(0, 6, this.radius * 0.95, this.radius * 0.65, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     if (this.type === 'boss') {
-      // Boss outer pulsing aura
-      const pulse = 6 + Math.sin(this.animTime * 4) * 3;
+      const pulse = 7 + Math.sin(this.animTime * 4) * 3;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius + pulse, 0, Math.PI * 2);
+      ctx.arc(0, 0, this.radius + pulse, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
       ctx.lineWidth = 3;
       ctx.stroke();
     }
 
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.stunTimer > 0 ? '#cbd5e1' : this.color;
-    ctx.fill();
-    ctx.lineWidth = this.type === 'boss' ? 3.5 : 2;
-    ctx.strokeStyle = this.stunTimer > 0 ? '#ffffff' : this.strokeColor;
-    ctx.stroke();
+    // Rotate alien to face player
+    ctx.save();
+    ctx.rotate(this.angle);
 
-    if (this.type === 'boss') {
-      // Inner armored core
+    const stunned = this.stunTimer > 0;
+    const legSwing = stunned ? 0 : Math.sin(this.animTime * (this.type === 'runner' ? 20 : 12));
+
+    if (this.type === 'runner') {
+      // Scuttling alien legs (3 pairs)
+      ctx.strokeStyle = stunned ? '#cbd5e1' : '#365314';
+      ctx.lineWidth = 2.4;
+      for (let side of [-1, 1]) {
+        for (let i = -1; i <= 1; i++) {
+          const offset = i * 6 + legSwing * (i % 2 === 0 ? 3 : -3);
+          ctx.beginPath();
+          ctx.moveTo(i * 4, side * 6);
+          ctx.lineTo(offset, side * (this.radius + 4));
+          ctx.stroke();
+        }
+      }
+
+      // Wiggling segmented alien tail
+      const tailWag = Math.sin(this.animTime * 14) * 5;
+      ctx.strokeStyle = stunned ? '#94a3b8' : '#4d7c0f';
+      ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius * 0.48, 0, Math.PI * 2);
-      ctx.fillStyle = '#3b0764';
-      ctx.fill();
-      ctx.strokeStyle = '#e879f9';
-      ctx.lineWidth = 2;
+      ctx.moveTo(-this.radius + 4, 0);
+      ctx.quadraticCurveTo(-this.radius - 8, tailWag, -this.radius - 15, -tailWag * 0.6);
       ctx.stroke();
+
+      // Elongated alien carapace
+      ctx.fillStyle = stunned ? '#cbd5e1' : '#65a30d';
+      ctx.strokeStyle = stunned ? '#ffffff' : '#d9f99d';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.radius, this.radius * 0.68, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Mandibles
+      ctx.strokeStyle = '#ecfccb';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(this.radius - 3, -5);
+      ctx.lineTo(this.radius + 6, -2);
+      ctx.moveTo(this.radius - 3, 5);
+      ctx.lineTo(this.radius + 6, 2);
+      ctx.stroke();
+
+      // Glowing alien eyes
+      ctx.fillStyle = stunned ? '#fde047' : '#fef08a';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.45, -4, 2.3, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.45, 4, 2.3, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 'brute') {
+      // Heavy clawed alien limbs
+      ctx.strokeStyle = stunned ? '#94a3b8' : '#7f1d1d';
+      ctx.lineWidth = 4.5;
+      for (let side of [-1, 1]) {
+        for (let i of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(i * 6, side * 12);
+          ctx.lineTo(i * 12 + legSwing * 3, side * (this.radius + 6));
+          ctx.stroke();
+        }
+      }
+
+      // Armored alien thorax
+      ctx.fillStyle = stunned ? '#cbd5e1' : '#991b1b';
+      ctx.strokeStyle = stunned ? '#ffffff' : '#fca5a5';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.radius, this.radius * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Chitin dorsal plates
+      ctx.fillStyle = stunned ? '#94a3b8' : '#dc2626';
+      ctx.beginPath();
+      ctx.ellipse(-4, 0, this.radius * 0.55, this.radius * 0.52, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Forward horns / pincers
+      ctx.fillStyle = '#fecaca';
+      ctx.beginPath();
+      ctx.moveTo(this.radius - 6, -11);
+      ctx.lineTo(this.radius + 10, -5);
+      ctx.lineTo(this.radius - 2, -4);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(this.radius - 6, 11);
+      ctx.lineTo(this.radius + 10, 5);
+      ctx.lineTo(this.radius - 2, 4);
+      ctx.closePath();
+      ctx.fill();
+
+      // Triple glowing predatory eyes
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.5, -6, 2.8, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.5, 6, 2.8, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.65, 0, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // BOSS: Alien Hive Overlord
+      // 6 writhing tentacles / alien limbs
+      ctx.strokeStyle = stunned ? '#cbd5e1' : '#6b21a8';
+      ctx.lineWidth = 5;
+      for (let i = 0; i < 6; i++) {
+        const baseAngle = ((i / 6) * Math.PI * 2) + Math.PI / 6;
+        const wiggle = Math.sin(this.animTime * 8 + i * 1.4) * 0.22;
+        const a = baseAngle + wiggle;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * (this.radius * 0.6), Math.sin(a) * (this.radius * 0.6));
+        ctx.lineTo(Math.cos(a) * (this.radius + 14), Math.sin(a) * (this.radius + 14));
+        ctx.stroke();
+      }
+
+      // Main alien carapace
+      ctx.fillStyle = stunned ? '#cbd5e1' : '#581c87';
+      ctx.strokeStyle = stunned ? '#ffffff' : '#e879f9';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.radius, this.radius * 0.9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Bioluminescent hive core
+      ctx.fillStyle = '#a855f7';
+      ctx.beginPath();
+      ctx.arc(-4, 0, this.radius * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Massive mandibles
+      ctx.fillStyle = '#f5d0fe';
+      ctx.beginPath();
+      ctx.moveTo(this.radius - 8, -18);
+      ctx.lineTo(this.radius + 16, -8);
+      ctx.lineTo(this.radius - 2, -6);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(this.radius - 8, 18);
+      ctx.lineTo(this.radius + 16, 8);
+      ctx.lineTo(this.radius - 2, 6);
+      ctx.closePath();
+      ctx.fill();
+
+      // 4 glowing alien eyes
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.52, -10, 4, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.52, 10, 4, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.68, -4, 3, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.68, 4, 3, 0, Math.PI * 2);
+      ctx.fill();
     }
+
+    ctx.restore();
 
     // Stunned indicator ring
     if (this.stunTimer > 0) {
       ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius + 5, this.animTime * 8, this.animTime * 8 + Math.PI * 1.3);
+      ctx.arc(0, 0, this.radius + 6, this.animTime * 8, this.animTime * 8 + Math.PI * 1.3);
       ctx.strokeStyle = '#fde047';
       ctx.lineWidth = 2.5;
       ctx.stroke();
@@ -219,8 +372,8 @@ export class Enemy {
     if (this.type !== 'boss' && this.health < this.maxHealth) {
       const barWidth = this.radius * 2;
       const barHeight = 4;
-      const barX = this.x - this.radius;
-      const barY = this.y - this.radius - 8;
+      const barX = -this.radius;
+      const barY = -this.radius - 10;
 
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(barX, barY, barWidth, barHeight);
