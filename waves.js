@@ -200,10 +200,17 @@ export class WaveManager {
     if (this.spawnedCount < wave.totalEnemies) {
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
-        const type = wave.types[Math.floor(Math.random() * wave.types.length)];
-        enemies.push(this.spawnEnemyAtEdge(type, scaling));
-        this.spawnedCount += 1;
-        this.spawnTimer = wave.spawnInterval / diff.spawnRateMultiplier;
+        // Occasional surprise double-flank spawn from different edges
+        const burstCount =
+          this.spawnedCount + 1 < wave.totalEnemies && Math.random() < 0.25 ? 2 : 1;
+        for (let i = 0; i < burstCount; i++) {
+          const type = wave.types[Math.floor(Math.random() * wave.types.length)];
+          enemies.push(this.spawnEnemyAtEdge(type, scaling));
+          this.spawnedCount += 1;
+        }
+        // Unpredictable jittered spawn delay
+        const baseInterval = wave.spawnInterval / diff.spawnRateMultiplier;
+        this.spawnTimer = baseInterval * (0.45 + Math.random() * 1.15);
       }
       return;
     }

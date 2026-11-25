@@ -58,7 +58,12 @@ export function resolveCombatCollisions(game) {
     if (enemy.isDead) continue;
 
     if (checkCircleCollision(enemy, player) && enemy.canAttack()) {
+      const prevHealth = player.health;
       player.takeDamage(enemy.damage);
+      if (player.health < prevHealth) {
+        const kb = enemy.type === 'boss' ? 560 : enemy.type === 'brute' ? 460 : 340;
+        player.applyKnockback?.(enemy.x, enemy.y, kb);
+      }
       enemy.resetAttackCooldown();
     }
   }

@@ -435,8 +435,11 @@ function update(dt) {
     }
 
     if (!player.isDead && checkCircleCollision(eb, player)) {
+      const prevHp = player.health;
       player.takeDamage(eb.damage);
-      effects.spawnHit(eb.x, eb.y, { color: '#a855f7' });
+      if (player.health < prevHp) {
+        player.applyKnockback(eb.x, eb.y, eb.isMissile ? 440 : 250);
+      }
       if (eb.isMissile) {
         effects.spawnExplosion(eb.x, eb.y, { color: '#f97316', radius: 48, count: 18, shake: 5 });
       } else {

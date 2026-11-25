@@ -106,6 +106,10 @@ export class Player {
     this.lastStandTimer = 0;
     this.isInvisible = false;
 
+    // Knockback velocity
+    this.knockVx = 0;
+    this.knockVy = 0;
+
     // Collectable Throwables (Grenade & Flashbang)
     this.grenadeCount = 2;
     this.flashbangCount = 2;
@@ -144,6 +148,23 @@ export class Player {
   heal(amount) {
     if (this.isDead || amount <= 0) return;
     this.health = Math.min(this.maxHealth, this.health + amount);
+  }
+
+  /**
+   * Applies directional knockback away from (fromX, fromY).
+   * @param {number} fromX
+   * @param {number} fromY
+   * @param {number} [force=360]
+   */
+  applyKnockback(fromX, fromY, force = 360) {
+    if (this.isDead || this.isInvulnerable || this.isInvisible) return;
+    const dx = this.x - fromX;
+    const dy = this.y - fromY;
+    const dist = Math.hypot(dx, dy);
+    const nx = dist > 0.001 ? dx / dist : Math.cos(this.angle + Math.PI);
+    const ny = dist > 0.001 ? dy / dist : Math.sin(this.angle + Math.PI);
+    this.knockVx += nx * force;
+    this.knockVy += ny * force;
   }
 
   /**
@@ -325,6 +346,18 @@ export class Player {
       this.isMoving = move.x !== 0 || move.y !== 0;
       this.x += move.x * this.speed * dt;
       this.y += move.y * this.speed * dt;
+    }
+
+    // Apply & decay knockback impulse
+    if (Math.abs(this.knockVx) > 1 || Math.abs(this.knockVy) > 1) {
+      this.x += this.knockVx * dt;
+      this.y += this.knockVy * dt;
+      const decay = Math.pow(0.84, dt * 60);
+      this.knockVx *= decay;
+      this.knockVy *= decay;
+    } else {
+      this.knockVx = 0;
+      this.knockVy = 0;
     }
 
     const margin = this.radius + 10;

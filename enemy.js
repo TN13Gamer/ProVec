@@ -90,6 +90,8 @@ export class Enemy {
     this.bossFireCooldown = 2.0 / fireRateMult;
     this.rangedFireCooldown = (1.1 + Math.random() * 0.8) / fireRateMult;
     this.strafeDir = Math.random() < 0.5 ? 1 : -1;
+    this.strafeTimer = 1.5 + Math.random() * 1.5;
+    this.aiSeed = Math.random() * Math.PI * 2;
     this.lungeTimer = 0;
     this.lungeCooldown = 0;
     this.angle = 0;
@@ -151,24 +153,40 @@ export class Enemy {
 
     if (dist > 0.001) {
       this.angle = Math.atan2(dy, dx);
+      const nx = dx / dist;
+      const ny = dy / dist;
+
       if (this.type === 'spitter' || this.type === 'missiler') {
+        this.strafeTimer -= dt;
+        if (this.strafeTimer <= 0) {
+          this.strafeDir *= -1;
+          this.strafeTimer = 1.4 + Math.random() * 1.6;
+        }
         const preferredFar = this.type === 'missiler' ? 370 : 310;
         const preferredNear = this.type === 'missiler' ? 230 : 180;
-        const nx = dx / dist;
-        const ny = dy / dist;
         if (dist > preferredFar) {
           this.x += nx * currentSpeed * dt;
           this.y += ny * currentSpeed * dt;
         } else if (dist < preferredNear) {
-          this.x -= nx * currentSpeed * 0.75 * dt;
-          this.y -= ny * currentSpeed * 0.75 * dt;
+          this.x -= nx * currentSpeed * 0.8 * dt;
+          this.y -= ny * currentSpeed * 0.8 * dt;
         } else {
-          this.x += -ny * this.strafeDir * currentSpeed * 0.65 * dt;
-          this.y += nx * this.strafeDir * currentSpeed * 0.65 * dt;
+          this.x += -ny * this.strafeDir * currentSpeed * 0.72 * dt;
+          this.y += nx * this.strafeDir * currentSpeed * 0.72 * dt;
         }
+      } else if (this.type === 'runner') {
+        // Runners weave laterally as they rush in
+        const weave = Math.sin(this.animTime * 5.5 + this.aiSeed) * 0.35;
+        this.x += (nx - ny * weave) * currentSpeed * dt;
+        this.y += (ny + nx * weave) * currentSpeed * dt;
+      } else if (this.type === 'stalker') {
+        // Stalkers flank at an angle until close, then rush straight in
+        const flank = dist > 140 ? 0.38 * this.strafeDir : 0;
+        this.x += (nx - ny * flank) * currentSpeed * dt;
+        this.y += (ny + nx * flank) * currentSpeed * dt;
       } else {
-        this.x += (dx / dist) * currentSpeed * dt;
-        this.y += (dy / dist) * currentSpeed * dt;
+        this.x += nx * currentSpeed * dt;
+        this.y += ny * currentSpeed * dt;
       }
     }
 
@@ -614,6 +632,27 @@ export function updateEnemies(enemies, dt, target, enemyBullets = null) {
     enemy.update(dt, target, enemyBullets);
     if (enemy.isDead) {
       enemies.splice(i, 1);
+    }
+  }
+
+  // Soft separation so aliens fan out instead of stacking into one blob
+  for (let i = 0; i < enemies.length; i++) {
+    const a = enemies[i];
+    for (let j = i + 1; j < enemies.length; j++) {
+      const b = enemies[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy);
+      const minDist = a.radius + b.radius + 4;
+      if (dist > 0.001 && dist < minDist) {
+        const push = (minDist - dist) * 0.35;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        a.x -= nx * push;
+        a.y -= ny * push;
+        b.x += nx * push;
+        b.y += ny * push;
+      }
     }
   }
 }
