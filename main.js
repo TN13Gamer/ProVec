@@ -637,13 +637,13 @@ function update(dt) {
       });
       sound.playExplosion(isBoss ? 1.5 : isBrute ? 1.0 : 0.7);
       gameState.score += isBoss ? 1500 : isBrute ? 250 : isMissiler ? 200 : isSpitter ? 160 : isStalker ? 140 : 100;
-      player.addRage(isBoss ? 50 : isBrute ? 22 : 12);
+      player.addRage(isBoss ? 25 : isBrute ? 10 : 5);
       const dropChance = isBrute ? 0.12 : isMissiler ? 0.08 : isSpitter || isStalker ? 0.06 : 0.03;
       if (!isBoss && Math.random() < dropChance) {
         spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
       }
     } else if (enemy.health < prevHealth) {
-      player.addRage(3);
+      player.addRage(1);
       sound.playHit();
       effects.spawnHit(enemy.x, enemy.y, { color: '#fde047' });
     }

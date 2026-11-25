@@ -1,18 +1,3 @@
-const SOLDIER_SPRITES = {};
-if (typeof Image !== 'undefined') {
-  const spriteMap = {
-    primary: './assets/sprites/player/soldier1_machine.png',
-    secondary: './assets/sprites/player/soldier1_gun.png',
-    reload: './assets/sprites/player/soldier1_reload.png',
-    stand: './assets/sprites/player/soldier1_stand.png',
-  };
-  for (const [key, src] of Object.entries(spriteMap)) {
-    const img = new Image();
-    img.src = src;
-    SOLDIER_SPRITES[key] = img;
-  }
-}
-
 const PLAYER_BULLET_FRAMES = [];
 if (typeof Image !== 'undefined') {
   for (const src of [
@@ -563,7 +548,7 @@ export class Player {
     this.health = Math.max(0, this.health - effectiveAmount);
     this.timeSinceLastDamage = 0;
     this.hurtTimer = 0.18;
-    this.addRage(10);
+    this.addRage(4);
     if (this.health <= 0) {
       this.isDead = true;
     } else if (!this.lastStandUsed && this.health <= this.maxHealth * 0.25) {
@@ -750,130 +735,76 @@ export class Player {
       ctx.translate(0, -bob);
     }
 
-    const spriteKey =
-      this.reloadTimer > 0
-        ? 'reload'
-        : this.weaponKey === 'secondary'
-        ? 'secondary'
-        : 'primary';
-    const soldierImg = SOLDIER_SPRITES[spriteKey];
+    ctx.save();
+    ctx.scale(facing, 1);
 
-    if (soldierImg && soldierImg.complete && soldierImg.naturalWidth > 0) {
-      const recoil = this.shootAnimTimer > 0 ? -3 : 0;
-      const drawW = 54;
-      const drawH = (soldierImg.naturalHeight / soldierImg.naturalWidth) * drawW;
+    // Jetpack & cyan thruster
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(-13, -7, 7, 15);
+    ctx.strokeRect(-13, -7, 7, 15);
 
-      ctx.save();
-      if (this.isDead) {
-        ctx.rotate(this.angle + (Math.PI / 2) * this.deathAnim);
-        ctx.globalAlpha = 0.65;
-      } else {
-        ctx.rotate(this.angle);
-        ctx.translate(recoil, 0);
-      }
-      ctx.drawImage(soldierImg, -drawW * 0.42, -drawH / 2, drawW, drawH);
-
-      if (this.hurtTimer > 0 && !this.isDead) {
-        ctx.globalCompositeOperation = 'source-atop';
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.45)';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.radius + 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    } else {
-      ctx.save();
-      ctx.scale(facing, 1);
-
-      // Jetpack & cyan thruster
-      ctx.fillStyle = '#1e293b';
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.5;
-      ctx.fillRect(-13, -7, 7, 15);
-      ctx.strokeRect(-13, -7, 7, 15);
-
-      if (this.isMoving && !this.isDead) {
-        const flame = 5 + Math.sin(this.animTime * 30) * 2.5;
-        ctx.fillStyle = '#38bdf8';
-        ctx.beginPath();
-        ctx.arc(-13, 0, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
-        ctx.beginPath();
-        ctx.moveTo(-13, -3);
-        ctx.lineTo(-13 - flame, 0);
-        ctx.lineTo(-13, 3);
-        ctx.closePath();
-        ctx.fill();
-      }
-
-      // Animated boots / legs
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(-5 + stride * 4, 8, 5, 8);
-      ctx.fillRect(1 - stride * 4, 8, 5, 8);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(-5 + stride * 4, 14, 6, 3);
-      ctx.fillRect(1 - stride * 4, 14, 6, 3);
-
-      // Armored torso
-      ctx.fillStyle = this.hurtTimer > 0 ? '#ef4444' : '#1e293b';
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 1.5;
+    if (this.isMoving && !this.isDead) {
+      const flame = 5 + Math.sin(this.animTime * 30) * 2.5;
+      ctx.fillStyle = '#38bdf8';
       ctx.beginPath();
-      ctx.roundRect(-8, -6, 16, 16, 4);
+      ctx.arc(-13, 0, 3.5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
-
-      // Orange chest armor accent
-      ctx.fillStyle = this.hurtTimer > 0 ? '#fca5a5' : '#f59e0b';
-      ctx.fillRect(-4, -2, 8, 6);
-
-      // Helmet base
-      ctx.fillStyle = this.hurtTimer > 0 ? '#f87171' : '#475569';
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.8;
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
       ctx.beginPath();
-      ctx.arc(0, -9, 10.5, 0, Math.PI * 2);
+      ctx.moveTo(-13, -3);
+      ctx.lineTo(-13 - flame, 0);
+      ctx.lineTo(-13, 3);
+      ctx.closePath();
       ctx.fill();
-      ctx.stroke();
-
-      // Signature gold/orange helmet stripe
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(-2.5, -19, 5, 7);
-
-      // Glowing cyan visor
-      ctx.fillStyle = this.isDead ? '#475569' : '#38bdf8';
-      ctx.beginPath();
-      ctx.roundRect(-3, -12, 11, 5.5, 2.5);
-      ctx.fill();
-      if (!this.isDead) {
-        ctx.fillStyle = '#e0f2fe';
-        ctx.fillRect(0, -11, 6, 2);
-      }
-
-      ctx.restore();
-
-      // Aimed sci-fi rifle
-      if (!this.isDead) {
-        const recoil = this.shootAnimTimer > 0 ? -3 : 0;
-        ctx.save();
-        ctx.rotate(this.angle);
-        ctx.translate(recoil, 0);
-
-        // Rifle body
-        ctx.fillStyle = '#0f172a';
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 1.2;
-        ctx.fillRect(4, -3.5, 19, 7);
-        ctx.strokeRect(4, -3.5, 19, 7);
-
-        // Energy barrel accent
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(14, -1.5, 8, 3);
-
-        ctx.restore();
-      }
     }
+
+    // Animated boots / legs
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(-5 + stride * 4, 8, 5, 8);
+    ctx.fillRect(1 - stride * 4, 8, 5, 8);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-5 + stride * 4, 14, 6, 3);
+    ctx.fillRect(1 - stride * 4, 14, 6, 3);
+
+    // Armored torso
+    ctx.fillStyle = this.hurtTimer > 0 ? '#ef4444' : '#1e293b';
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(-8, -6, 16, 16, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    // Orange chest armor accent
+    ctx.fillStyle = this.hurtTimer > 0 ? '#fca5a5' : '#f59e0b';
+    ctx.fillRect(-4, -2, 8, 6);
+
+    // Helmet base
+    ctx.fillStyle = this.hurtTimer > 0 ? '#f87171' : '#475569';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(0, -9, 10.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Signature gold/orange helmet stripe
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(-2.5, -19, 5, 7);
+
+    // Glowing cyan visor
+    ctx.fillStyle = this.isDead ? '#475569' : '#38bdf8';
+    ctx.beginPath();
+    ctx.roundRect(-3, -12, 11, 5.5, 2.5);
+    ctx.fill();
+    if (!this.isDead) {
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(0, -11, 6, 2);
+    }
+
+    ctx.restore();
 
     // Reload progress bar above player
     if (!this.isDead && this.reloadTimer > 0 && this.reloadDuration > 0) {
@@ -885,6 +816,27 @@ export class Player {
       ctx.fillRect(-barW / 2, -32, barW, barH);
       ctx.fillStyle = '#fde047';
       ctx.fillRect(-barW / 2, -32, barW * progress, barH);
+      ctx.restore();
+    }
+
+    // Aimed sci-fi rifle
+    if (!this.isDead) {
+      const recoil = this.shootAnimTimer > 0 ? -3 : 0;
+      ctx.save();
+      ctx.rotate(this.angle);
+      ctx.translate(recoil, 0);
+
+      // Rifle body
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(4, -3.5, 19, 7);
+      ctx.strokeRect(4, -3.5, 19, 7);
+
+      // Energy barrel accent
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(14, -1.5, 8, 3);
+
       ctx.restore();
     }
 
