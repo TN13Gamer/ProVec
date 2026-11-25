@@ -1,3 +1,15 @@
+const PLAYER_BULLET_FRAMES = [];
+if (typeof Image !== 'undefined') {
+  for (const src of [
+    './assets/sprites/player_bullet_f1.png',
+    './assets/sprites/player_bullet_f2.png',
+  ]) {
+    const img = new Image();
+    img.src = src;
+    PLAYER_BULLET_FRAMES.push(img);
+  }
+}
+
 export const PLAYER_DEFAULTS = {
   MAX_HEALTH: 150,
   RADIUS: 18,
@@ -566,11 +578,31 @@ export class Player {
    * @param {CanvasRenderingContext2D} ctx
    */
   render(ctx) {
-    // Glowing tapered energy bolts
+    // Player projectiles (use PNG sprite frames when loaded, fallback to glowing energy bolts)
+    const bulletFrame =
+      PLAYER_BULLET_FRAMES.length > 0
+        ? PLAYER_BULLET_FRAMES[Math.floor(this.animTime * 14) % PLAYER_BULLET_FRAMES.length]
+        : null;
+    const useBulletSprite =
+      bulletFrame && bulletFrame.complete && bulletFrame.naturalWidth > 0 && !this.isRaging;
+
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+    if (!useBulletSprite) {
+      ctx.globalCompositeOperation = 'lighter';
+    }
     for (const b of this.bullets) {
       const angle = Math.atan2(b.vy, b.vx);
+
+      if (useBulletSprite) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(angle + Math.PI / 2);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(bulletFrame, -6, -12, 12, 24);
+        ctx.restore();
+        continue;
+      }
+
       const length = Math.max(22, b.radius * 6);
       const halfWidth = Math.max(3, b.radius * 0.9);
       const auraRgba = b.auraRgba ?? '56, 189, 248';

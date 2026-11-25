@@ -1,6 +1,22 @@
+const ALIEN_SPRITES = {};
+if (typeof Image !== 'undefined') {
+  const spriteMap = {
+    runner: './assets/sprites/alien_1_scout.png',
+    stalker: './assets/sprites/alien_2_raider.png',
+    brute: './assets/sprites/alien_3_tank.png',
+    missiler: './assets/sprites/alien_5_missile_launcher.png',
+  };
+  for (const [key, src] of Object.entries(spriteMap)) {
+    const img = new Image();
+    img.src = src;
+    ALIEN_SPRITES[key] = img;
+  }
+}
+
 export const ENEMY_TYPES = {
   // Melee 1: Aggressive, fast, low health
   runner: {
+    name: 'SCOUT',
     radius: 14,
     speed: 185,
     maxHealth: 25,
@@ -11,6 +27,7 @@ export const ENEMY_TYPES = {
   },
   // Melee 2: Medium movement, medium health
   stalker: {
+    name: 'RAIDER',
     radius: 20,
     speed: 125,
     maxHealth: 80,
@@ -21,6 +38,7 @@ export const ENEMY_TYPES = {
   },
   // Melee 3: Tank, slow, very high health
   brute: {
+    name: 'TANK',
     radius: 29,
     speed: 72,
     maxHealth: 320,
@@ -31,6 +49,7 @@ export const ENEMY_TYPES = {
   },
   // Shooter 1: Bullet shooter
   spitter: {
+    name: 'SPITTER',
     radius: 17,
     speed: 115,
     maxHealth: 50,
@@ -41,6 +60,7 @@ export const ENEMY_TYPES = {
   },
   // Shooter 2: Missile shooter
   missiler: {
+    name: 'LAUNCHER',
     radius: 21,
     speed: 85,
     maxHealth: 90,
@@ -50,6 +70,7 @@ export const ENEMY_TYPES = {
     strokeColor: '#fde68a',
   },
   boss: {
+    name: 'OVERLORD',
     radius: 44,
     speed: 80,
     maxHealth: 950,
@@ -77,6 +98,7 @@ export class Enemy {
     this.x = x;
     this.y = y;
     this.type = type in ENEMY_TYPES ? type : 'runner';
+    this.name = config.name || this.type.toUpperCase();
     this.radius = config.radius;
     this.speed = config.speed * speedMult;
     this.maxHealth = Math.round(config.maxHealth * healthMult);
@@ -313,8 +335,17 @@ export class Enemy {
 
     const stunned = this.stunTimer > 0;
     const legSwing = stunned ? 0 : Math.sin(this.animTime * (this.type === 'runner' ? 20 : 12));
+    const sprite = ALIEN_SPRITES[this.type];
 
-    if (this.type === 'runner') {
+    if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+      const size = this.radius * 2.5;
+      ctx.save();
+      ctx.rotate(this.angle + Math.PI / 2);
+      ctx.imageSmoothingEnabled = false;
+      if (stunned) ctx.globalAlpha = 0.65;
+      ctx.drawImage(sprite, -size / 2, -size / 2, size, size);
+      ctx.restore();
+    } else if (this.type === 'runner') {
       // Scuttling alien legs (3 pairs)
       ctx.strokeStyle = stunned ? '#cbd5e1' : '#365314';
       ctx.lineWidth = 2.4;
@@ -615,6 +646,15 @@ export class Enemy {
       ctx.fillStyle = '#ef4444';
       ctx.fillRect(barX, barY, barWidth * (this.health / this.maxHealth), barHeight);
     }
+
+    // Alien name tag
+    ctx.font = '700 9px "Consolas", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(9, 11, 13, 0.75)';
+    const labelY = this.type !== 'boss' && this.health < this.maxHealth ? -this.radius - 13 : -this.radius - 6;
+    ctx.fillStyle = this.strokeColor || '#e5e7eb';
+    ctx.fillText(this.name, 0, labelY);
 
     ctx.restore();
   }

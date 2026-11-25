@@ -21,6 +21,21 @@ import {
   renderObstacles,
 } from './obstacles.js';
 
+const ENEMY_BULLET_FRAMES = [];
+const ENEMY_MISSILE_FRAMES = [];
+if (typeof Image !== 'undefined') {
+  for (const src of ['./assets/sprites/enemy_bullet_f1.png', './assets/sprites/enemy_bullet_f2.png']) {
+    const img = new Image();
+    img.src = src;
+    ENEMY_BULLET_FRAMES.push(img);
+  }
+  for (const src of ['./assets/sprites/enemy_missile_f1.png', './assets/sprites/enemy_missile_f2.png']) {
+    const img = new Image();
+    img.src = src;
+    ENEMY_MISSILE_FRAMES.push(img);
+  }
+}
+
 export const CANVAS_WIDTH = 1280;
 export const CANVAS_HEIGHT = 720;
 
@@ -613,45 +628,51 @@ function render() {
     renderObstacles(gameState.obstacles, ctx);
     renderEnemies(gameState.enemies, ctx);
 
-    // Enemy & Boss plasma projectiles
     // Enemy & Boss plasma projectiles / missiles
     if (gameState.enemyBullets.length > 0) {
+      const frameIdx = Math.floor(ui.time * 12) % 2;
+      const bulletImg = ENEMY_BULLET_FRAMES[frameIdx];
+      const missileImg = ENEMY_MISSILE_FRAMES[frameIdx];
+      const hasBulletSprite = bulletImg && bulletImg.complete && bulletImg.naturalWidth > 0;
+      const hasMissileSprite = missileImg && missileImg.complete && missileImg.naturalWidth > 0;
+
       ctx.save();
       for (const eb of gameState.enemyBullets) {
-        ctx.beginPath();
-        ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
-        ctx.fillStyle = eb.color ?? '#c084fc';
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#ffffff';
-        ctx.stroke();
         if (eb.isMissile) {
           const angle = Math.atan2(eb.vy, eb.vx);
           ctx.save();
           ctx.translate(eb.x, eb.y);
-          ctx.rotate(angle);
-          // Thruster flame
-          ctx.fillStyle = '#fde047';
-          ctx.beginPath();
-          ctx.moveTo(-12, -3);
-          ctx.lineTo(-19, 0);
-          ctx.lineTo(-12, 3);
-          ctx.closePath();
-          ctx.fill();
-          // Missile body
-          ctx.fillStyle = '#f97316';
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.4;
-          ctx.fillRect(-10, -4, 16, 8);
-          ctx.strokeRect(-10, -4, 16, 8);
-          // Red warhead nose
-          ctx.fillStyle = '#ef4444';
-          ctx.beginPath();
-          ctx.moveTo(6, -4);
-          ctx.lineTo(13, 0);
-          ctx.lineTo(6, 4);
-          ctx.closePath();
-          ctx.fill();
+          if (hasMissileSprite) {
+            ctx.rotate(angle + Math.PI / 2);
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(missileImg, -7, -17, 14, 34);
+          } else {
+            ctx.rotate(angle);
+            ctx.fillStyle = '#fde047';
+            ctx.beginPath();
+            ctx.moveTo(-12, -3);
+            ctx.lineTo(-19, 0);
+            ctx.lineTo(-12, 3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#f97316';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.4;
+            ctx.fillRect(-10, -4, 16, 8);
+            ctx.strokeRect(-10, -4, 16, 8);
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(6, -4);
+            ctx.lineTo(13, 0);
+            ctx.lineTo(6, 4);
+            ctx.closePath();
+            ctx.fill();
+          }
+          ctx.restore();
+        } else if (hasBulletSprite) {
+          ctx.save();
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(bulletImg, eb.x - 7, eb.y - 7, 14, 14);
           ctx.restore();
         } else {
           ctx.beginPath();
