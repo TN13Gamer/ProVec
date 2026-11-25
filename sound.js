@@ -139,8 +139,13 @@ export class SoundManager {
   }
 
   playRage() {
-    this._playTone('triangle', 110, 220, 0.32, 0.18, 0);
-    this._playTone('sine', 165, 330, 0.32, 0.14, 0.03);
+    const ctx = this._ensureContext();
+    if (!ctx) return;
+    // Deep sub-bass power surge + rising filtered synth roar
+    this._playTone('sine', 75, 190, 0.45, 0.34, 0);
+    this._playTone('sawtooth', 110, 330, 0.42, 0.22, 0.02);
+    this._playTone('triangle', 220, 440, 0.38, 0.18, 0.06);
+    this._playNoise(0.35, 'bandpass', 300, 1800, 0.24, 0);
   }
 
   playFlashbang() {
