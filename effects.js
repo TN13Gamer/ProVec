@@ -139,16 +139,16 @@ export class EffectsManager {
     this.flashes.push({
       x,
       y,
-      radius: 10,
-      life: 0.06,
-      maxLife: 0.06,
-      color: '#fef08a',
+      radius: 14,
+      life: 0.07,
+      maxLife: 0.07,
+      color: '#38bdf8',
     });
 
-    for (let i = 0; i < 3; i++) {
-      const spread = angle + (Math.random() - 0.5) * 0.6;
-      const speed = 120 + Math.random() * 100;
-      const life = 0.08 + Math.random() * 0.05;
+    for (let i = 0; i < 4; i++) {
+      const spread = angle + (Math.random() - 0.5) * 0.65;
+      const speed = 130 + Math.random() * 120;
+      const life = 0.08 + Math.random() * 0.06;
       this.particles.push({
         x,
         y,
@@ -157,7 +157,7 @@ export class EffectsManager {
         size: 1.8,
         life,
         maxLife: life,
-        color: '#fde047',
+        color: '#7dd3fc',
         drag: 0.85,
       });
     }

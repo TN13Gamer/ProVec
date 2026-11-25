@@ -93,11 +93,11 @@ export class InputHandler {
   }
 
   /**
-   * Returns true while left mouse button is held down.
+   * Returns true while left mouse button or Spacebar is held down.
    * @returns {boolean}
    */
   isShooting() {
-    return this.mouse.isDown;
+    return this.mouse.isDown || this.keys.has('Space');
   }
 
   /**

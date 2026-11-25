@@ -79,14 +79,46 @@ export function updateBullets(bullets, dt, bounds) {
 }
 
 /**
- * @param {Array<{ x: number, y: number, radius: number }>} bullets
+ * @param {Array<{ x: number, y: number, vx?: number, vy?: number, radius: number }>} bullets
  * @param {CanvasRenderingContext2D} ctx
  */
 export function renderBullets(bullets, ctx) {
-  ctx.fillStyle = '#fde047';
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
   for (const b of bullets) {
+    const angle = Math.atan2(b.vy ?? 0, b.vx ?? 1);
+    const length = Math.max(22, b.radius * 6);
+    const halfWidth = Math.max(3, b.radius * 0.9);
+
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(angle);
+
+    const auraGrad = ctx.createLinearGradient(-length, 0, b.radius * 2, 0);
+    auraGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
+    auraGrad.addColorStop(0.55, 'rgba(56, 189, 248, 0.55)');
+    auraGrad.addColorStop(1, 'rgba(125, 211, 252, 0.95)');
+
+    ctx.fillStyle = auraGrad;
     ctx.beginPath();
-    ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+    ctx.moveTo(-length, 0);
+    ctx.quadraticCurveTo(-length * 0.25, -halfWidth * 1.9, b.radius * 1.6, 0);
+    ctx.quadraticCurveTo(-length * 0.25, halfWidth * 1.9, -length, 0);
     ctx.fill();
+
+    const coreGrad = ctx.createLinearGradient(-length * 0.7, 0, b.radius * 1.2, 0);
+    coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    coreGrad.addColorStop(0.6, 'rgba(224, 242, 254, 0.85)');
+    coreGrad.addColorStop(1, '#ffffff');
+
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.moveTo(-length * 0.7, 0);
+    ctx.quadraticCurveTo(-length * 0.15, -halfWidth * 0.75, b.radius * 1.1, 0);
+    ctx.quadraticCurveTo(-length * 0.15, halfWidth * 0.75, -length * 0.7, 0);
+    ctx.fill();
+
+    ctx.restore();
   }
+  ctx.restore();
 }
