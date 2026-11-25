@@ -2,59 +2,59 @@ export const ENEMY_TYPES = {
   // Melee 1: Aggressive, fast, low health
   runner: {
     radius: 14,
-    speed: 235,
+    speed: 175,
     maxHealth: 28,
-    damage: 13,
-    attackInterval: 0.45,
+    damage: 9,
+    attackInterval: 0.7,
     color: '#84cc16',
     strokeColor: '#d9f99d',
   },
   // Melee 2: Medium movement, medium health
   stalker: {
     radius: 20,
-    speed: 155,
+    speed: 125,
     maxHealth: 80,
-    damage: 18,
-    attackInterval: 0.65,
+    damage: 13,
+    attackInterval: 0.9,
     color: '#3b82f6',
     strokeColor: '#bfdbfe',
   },
   // Melee 3: Tank, slow, very high health
   brute: {
     radius: 28,
-    speed: 90,
+    speed: 75,
     maxHealth: 240,
-    damage: 30,
-    attackInterval: 0.85,
+    damage: 22,
+    attackInterval: 1.1,
     color: '#dc2626',
     strokeColor: '#fca5a5',
   },
   // Shooter 1: Bullet shooter
   spitter: {
     radius: 17,
-    speed: 145,
+    speed: 115,
     maxHealth: 50,
-    damage: 12,
-    attackInterval: 0.75,
+    damage: 9,
+    attackInterval: 0.95,
     color: '#14b8a6',
     strokeColor: '#99f6e4',
   },
   // Shooter 2: Missile shooter
   missiler: {
     radius: 21,
-    speed: 105,
+    speed: 85,
     maxHealth: 90,
-    damage: 16,
-    attackInterval: 0.85,
+    damage: 12,
+    attackInterval: 1.0,
     color: '#f59e0b',
     strokeColor: '#fde68a',
   },
   boss: {
     radius: 44,
-    speed: 102,
+    speed: 80,
     maxHealth: 950,
-    damage: 34,
-    attackInterval: 0.7,
+    damage: 25,
+    attackInterval: 1.0,
     color: '#a855f7',
     strokeColor: '#f3e8ff',
   },
@@ -138,15 +138,15 @@ export class Enemy {
     const dist = Math.hypot(dx, dy);
 
     this.lungeCooldown = Math.max(0, this.lungeCooldown - dt);
-    if (this.type === 'runner' && dist < 185 && dist > 35 && this.lungeCooldown <= 0) {
-      this.lungeTimer = 0.24;
-      this.lungeCooldown = 2.0 / this.fireRateMultiplier;
+    if (this.type === 'runner' && dist < 165 && dist > 40 && this.lungeCooldown <= 0) {
+      this.lungeTimer = 0.2;
+      this.lungeCooldown = 3.0 / this.fireRateMultiplier;
     }
 
     let currentSpeed = this.speed;
     if (this.lungeTimer > 0) {
       this.lungeTimer = Math.max(0, this.lungeTimer - dt);
-      currentSpeed *= 1.7;
+      currentSpeed *= 1.35;
     }
 
     if (dist > 0.001) {
@@ -175,39 +175,39 @@ export class Enemy {
     // Shooter 1: Spitter rapid plasma bullets
     if (this.type === 'spitter' && enemyBullets) {
       this.rangedFireCooldown -= dt;
-      if (this.rangedFireCooldown <= 0 && dist < 560) {
+      if (this.rangedFireCooldown <= 0 && dist < 520) {
         const angle = Math.atan2(dy, dx);
         enemyBullets.push({
           x: this.x + Math.cos(angle) * (this.radius + 6),
           y: this.y + Math.sin(angle) * (this.radius + 6),
-          vx: Math.cos(angle) * 380,
-          vy: Math.sin(angle) * 380,
+          vx: Math.cos(angle) * 290,
+          vy: Math.sin(angle) * 290,
           radius: 5.5,
-          damage: Math.round(12 * this.damageMultiplier),
+          damage: Math.round(9 * this.damageMultiplier),
           color: '#f43f5e',
         });
-        this.rangedFireCooldown = 1.65 / this.fireRateMultiplier;
+        this.rangedFireCooldown = 2.35 / this.fireRateMultiplier;
       }
     }
 
     // Shooter 2: Missiler guided bio-missiles
     if (this.type === 'missiler' && enemyBullets) {
       this.rangedFireCooldown -= dt;
-      if (this.rangedFireCooldown <= 0 && dist < 640) {
+      if (this.rangedFireCooldown <= 0 && dist < 580) {
         const angle = Math.atan2(dy, dx);
         enemyBullets.push({
           isMissile: true,
           x: this.x + Math.cos(angle) * (this.radius + 8),
           y: this.y + Math.sin(angle) * (this.radius + 8),
-          vx: Math.cos(angle) * 240,
-          vy: Math.sin(angle) * 240,
-          speed: 240,
-          life: 2.8,
+          vx: Math.cos(angle) * 195,
+          vy: Math.sin(angle) * 195,
+          speed: 195,
+          life: 2.6,
           radius: 7.5,
-          damage: Math.round(22 * this.damageMultiplier),
+          damage: Math.round(16 * this.damageMultiplier),
           color: '#f97316',
         });
-        this.rangedFireCooldown = 2.7 / this.fireRateMultiplier;
+        this.rangedFireCooldown = 3.4 / this.fireRateMultiplier;
       }
     }
 
@@ -216,20 +216,20 @@ export class Enemy {
       this.bossFireCooldown -= dt;
       if (this.bossFireCooldown <= 0) {
         const baseAngle = Math.atan2(dy, dx);
-        const count = 8;
-        const spread = 1.65;
+        const count = 7;
+        const spread = 1.5;
         for (let i = 0; i < count; i++) {
           const angle = baseAngle + (i / (count - 1) - 0.5) * spread;
           enemyBullets.push({
             x: this.x + Math.cos(angle) * (this.radius + 6),
             y: this.y + Math.sin(angle) * (this.radius + 6),
-            vx: Math.cos(angle) * 315,
-            vy: Math.sin(angle) * 315,
+            vx: Math.cos(angle) * 250,
+            vy: Math.sin(angle) * 250,
             radius: 7,
-            damage: Math.round(18 * this.damageMultiplier),
+            damage: Math.round(13 * this.damageMultiplier),
           });
         }
-        this.bossFireCooldown = 1.75 / this.fireRateMultiplier;
+        this.bossFireCooldown = 2.6 / this.fireRateMultiplier;
       }
     }
   }
