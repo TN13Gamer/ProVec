@@ -36,6 +36,11 @@ export class Player {
     this.isDead = false;
     this.fireCooldown = 0;
     this.bullets = [];
+    this.animTime = 0;
+    this.isMoving = false;
+    this.shootAnimTimer = 0;
+    this.hurtTimer = 0;
+    this.deathAnim = 0;
   }
 
   /**
@@ -46,12 +51,18 @@ export class Player {
    */
   update(dt, input, bounds) {
     this._updateBullets(dt, bounds);
+    this.animTime += dt;
+    this.shootAnimTimer = Math.max(0, this.shootAnimTimer - dt);
+    this.hurtTimer = Math.max(0, this.hurtTimer - dt);
 
     if (this.isDead) {
+      this.isMoving = false;
+      this.deathAnim = Math.min(1, this.deathAnim + dt * 2.5);
       return;
     }
 
     const move = input.getMovementVector();
+    this.isMoving = move.x !== 0 || move.y !== 0;
     this.x += move.x * this.speed * dt;
     this.y += move.y * this.speed * dt;
 
@@ -90,6 +101,7 @@ export class Player {
 
     this.bullets.push(bullet);
     this.fireCooldown = this.fireInterval;
+    this.shootAnimTimer = 0.1;
     return bullet;
   }
 
@@ -104,6 +116,7 @@ export class Player {
     }
 
     this.health = Math.max(0, this.health - amount);
+    this.hurtTimer = 0.18;
     if (this.health <= 0) {
       this.isDead = true;
     }
@@ -181,20 +194,115 @@ export class Player {
 
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.rotate(this.angle);
 
-    // Gun barrel
-    ctx.fillStyle = this.isDead ? '#64748b' : '#cbd5e1';
-    ctx.fillRect(this.radius - 4, -4, 14, 8);
-
-    // Player body
+    // Ground shadow
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.55)';
     ctx.beginPath();
-    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.isDead ? '#7f1d1d' : '#38bdf8';
+    ctx.ellipse(0, 14, 15, 7, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = this.isDead ? '#ef4444' : '#e0f2fe';
+
+    const facing = Math.cos(this.angle) >= 0 ? 1 : -1;
+    const stride = this.isMoving && !this.isDead ? Math.sin(this.animTime * 16) : 0;
+    const bob = this.isMoving && !this.isDead ? Math.abs(Math.cos(this.animTime * 16)) * 2 : 0;
+
+    if (this.isDead) {
+      ctx.rotate(facing * (Math.PI / 2) * this.deathAnim);
+      ctx.globalAlpha = 0.85;
+    } else {
+      ctx.translate(0, -bob);
+    }
+
+    ctx.save();
+    ctx.scale(facing, 1);
+
+    // Jetpack & cyan thruster
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(-13, -7, 7, 15);
+    ctx.strokeRect(-13, -7, 7, 15);
+
+    if (this.isMoving && !this.isDead) {
+      const flame = 5 + Math.sin(this.animTime * 30) * 2.5;
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(-13, 0, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.beginPath();
+      ctx.moveTo(-13, -3);
+      ctx.lineTo(-13 - flame, 0);
+      ctx.lineTo(-13, 3);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Animated boots / legs
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(-5 + stride * 4, 8, 5, 8);
+    ctx.fillRect(1 - stride * 4, 8, 5, 8);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-5 + stride * 4, 14, 6, 3);
+    ctx.fillRect(1 - stride * 4, 14, 6, 3);
+
+    // Armored torso
+    ctx.fillStyle = this.hurtTimer > 0 ? '#ef4444' : '#1e293b';
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(-8, -6, 16, 16, 4);
+    ctx.fill();
     ctx.stroke();
+
+    // Orange chest armor accent
+    ctx.fillStyle = this.hurtTimer > 0 ? '#fca5a5' : '#f59e0b';
+    ctx.fillRect(-4, -2, 8, 6);
+
+    // Helmet base
+    ctx.fillStyle = this.hurtTimer > 0 ? '#f87171' : '#475569';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(0, -9, 10.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Signature gold/orange helmet stripe
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(-2.5, -19, 5, 7);
+
+    // Glowing cyan visor
+    ctx.fillStyle = this.isDead ? '#475569' : '#38bdf8';
+    ctx.beginPath();
+    ctx.roundRect(-3, -12, 11, 5.5, 2.5);
+    ctx.fill();
+    if (!this.isDead) {
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(0, -11, 6, 2);
+    }
+
+    ctx.restore();
+
+    // Aimed sci-fi rifle
+    if (!this.isDead) {
+      const recoil = this.shootAnimTimer > 0 ? -3 : 0;
+      ctx.save();
+      ctx.rotate(this.angle);
+      ctx.translate(recoil, 0);
+
+      // Rifle body
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(4, -3.5, 19, 7);
+      ctx.strokeRect(4, -3.5, 19, 7);
+
+      // Energy barrel accent
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(14, -1.5, 8, 3);
+
+      ctx.restore();
+    }
 
     ctx.restore();
   }
