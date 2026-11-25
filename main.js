@@ -59,6 +59,8 @@ const gameState = {
 let lastTime = 0;
 let animationFrameId = null;
 let supplyDropTimer = 8.5;
+let lastAnnouncedWave = 0;
+let lastStandAnnounced = false;
 
 /**
  * Starts a fresh mission from the main menu or restarts during/after a run.
@@ -86,6 +88,9 @@ export function restart() {
   gameState.totalWaves = waveManager.waves.length;
   gameState.isGameOver = false;
   gameState.isVictory = false;
+  lastAnnouncedWave = 1;
+  lastStandAnnounced = false;
+  ui.showCenterPopup('WAVE 1', 'ALIEN SWARM INBOUND — 01:30', 2.4, 'wave');
   lastTime = performance.now();
 }
 
@@ -166,6 +171,20 @@ function update(dt) {
 
   waveManager.update(dt, gameState.enemies);
   gameState.wave = waveManager.getCurrentWaveNumber();
+
+  if (gameState.wave !== lastAnnouncedWave) {
+    lastAnnouncedWave = gameState.wave;
+    if (gameState.wave === gameState.totalWaves) {
+      ui.showCenterPopup(`WAVE ${gameState.wave}`, 'FINAL WAVE — BOSS OVERLORD INBOUND', 2.8, 'boss');
+    } else {
+      ui.showCenterPopup(`WAVE ${gameState.wave}`, 'HOSTILES INBOUND — 01:30', 2.4, 'wave');
+    }
+  }
+
+  if (!lastStandAnnounced && player.lastStandTimer > 0) {
+    lastStandAnnounced = true;
+    ui.showCenterPopup('LAST STAND', 'INVISIBLE FOR 5.0 SECONDS', 2.5, 'laststand');
+  }
 
   updateEnemies(gameState.enemies, dt, player, gameState.enemyBullets);
   updatePickups(gameState.pickups, dt);

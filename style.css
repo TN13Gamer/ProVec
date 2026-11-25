@@ -340,6 +340,51 @@ canvas {
   opacity: 0.45;
 }
 
+/* --- Center Screen Tactical Popup --- */
+.center-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  pointer-events: none;
+  background: rgba(10, 12, 15, 0.9);
+  border: 2px solid #f59e0b;
+  border-left: 6px solid #f59e0b;
+  border-right: 6px solid #f59e0b;
+  padding: 16px 40px;
+  text-align: center;
+  min-width: 320px;
+}
+
+.center-popup.variant-boss {
+  border-color: #dc2626;
+}
+
+.center-popup.variant-boss .center-popup-title {
+  color: #ef4444;
+}
+
+.center-popup.variant-laststand {
+  border-color: #fbbf24;
+  background: rgba(35, 20, 7, 0.92);
+}
+
+.center-popup-title {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: #fbbf24;
+}
+
+.center-popup-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #e5e7eb;
+}
+
 /* --- External Menu Modal --- */
 .menu-backdrop {
   position: fixed;

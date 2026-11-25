@@ -113,6 +113,7 @@ export class GameUI {
 
     this.time = 0;
     this.currentState = 'menu';
+    this.popupTimer = 0;
 
     this.els = typeof document !== 'undefined'
       ? {
@@ -127,6 +128,9 @@ export class GameUI {
           bossHealthBar: document.getElementById('bossHealthBar'),
           lastStandBanner: document.getElementById('lastStandBanner'),
           lastStandTimer: document.getElementById('lastStandTimer'),
+          centerPopup: document.getElementById('centerPopup'),
+          centerPopupTitle: document.getElementById('centerPopupTitle'),
+          centerPopupSub: document.getElementById('centerPopupSub'),
           cardPrimary: document.getElementById('cardPrimary'),
           cardSecondary: document.getElementById('cardSecondary'),
           ammoPrimary: document.getElementById('ammoPrimary'),
@@ -176,10 +180,41 @@ export class GameUI {
   }
 
   /**
+   * Shows a centered tactical popup notification for duration seconds.
+   * @param {string} title
+   * @param {string} [subtitle='']
+   * @param {number} [duration=2.4]
+   * @param {'wave' | 'boss' | 'laststand'} [variant='wave']
+   */
+  showCenterPopup(title, subtitle = '', duration = 2.4, variant = 'wave') {
+    if (!this.els.centerPopup) return;
+    this.els.centerPopupTitle.textContent = title;
+    this.els.centerPopupSub.textContent = subtitle;
+    this.els.centerPopup.classList.remove('hidden', 'variant-boss', 'variant-laststand');
+    if (variant === 'boss') {
+      this.els.centerPopup.classList.add('variant-boss');
+    } else if (variant === 'laststand') {
+      this.els.centerPopup.classList.add('variant-laststand');
+    }
+    this.popupTimer = duration;
+  }
+
+  hideCenterPopup() {
+    this.popupTimer = 0;
+    this.els.centerPopup?.classList.add('hidden');
+  }
+
+  /**
    * @param {number} dt
    */
   update(dt) {
     this.time += dt;
+    if (this.popupTimer > 0) {
+      this.popupTimer = Math.max(0, this.popupTimer - dt);
+      if (this.popupTimer === 0) {
+        this.els.centerPopup?.classList.add('hidden');
+      }
+    }
   }
 
   /**

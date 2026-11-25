@@ -1,37 +1,37 @@
 export const ENEMY_TYPES = {
   runner: {
     radius: 15,
-    speed: 220,
+    speed: 175,
     maxHealth: 40,
-    damage: 14,
-    attackInterval: 0.42,
+    damage: 10,
+    attackInterval: 0.65,
     color: '#84cc16',
     strokeColor: '#d9f99d',
   },
   brute: {
     radius: 26,
-    speed: 125,
-    maxHealth: 125,
-    damage: 28,
-    attackInterval: 0.72,
+    speed: 95,
+    maxHealth: 120,
+    damage: 20,
+    attackInterval: 1.0,
     color: '#dc2626',
     strokeColor: '#fca5a5',
   },
   spitter: {
     radius: 17,
-    speed: 150,
-    maxHealth: 55,
-    damage: 12,
-    attackInterval: 0.7,
+    speed: 120,
+    maxHealth: 50,
+    damage: 10,
+    attackInterval: 0.9,
     color: '#14b8a6',
     strokeColor: '#99f6e4',
   },
   boss: {
     radius: 44,
-    speed: 105,
-    maxHealth: 950,
-    damage: 38,
-    attackInterval: 0.65,
+    speed: 82,
+    maxHealth: 900,
+    damage: 28,
+    attackInterval: 0.9,
     color: '#a855f7',
     strokeColor: '#f3e8ff',
   },
@@ -111,15 +111,15 @@ export class Enemy {
     const dist = Math.hypot(dx, dy);
 
     this.lungeCooldown = Math.max(0, this.lungeCooldown - dt);
-    if (this.type === 'runner' && dist < 190 && dist > 35 && this.lungeCooldown <= 0) {
-      this.lungeTimer = 0.24;
-      this.lungeCooldown = 1.8;
+    if (this.type === 'runner' && dist < 170 && dist > 40 && this.lungeCooldown <= 0) {
+      this.lungeTimer = 0.22;
+      this.lungeCooldown = 2.8;
     }
 
     let currentSpeed = this.speed;
     if (this.lungeTimer > 0) {
       this.lungeTimer = Math.max(0, this.lungeTimer - dt);
-      currentSpeed *= 1.85;
+      currentSpeed *= 1.45;
     }
 
     if (dist > 0.001) {
@@ -148,18 +148,18 @@ export class Enemy {
     // Ranged Spitter plasma shot
     if (this.type === 'spitter' && enemyBullets) {
       this.rangedFireCooldown -= dt;
-      if (this.rangedFireCooldown <= 0 && dist < 560) {
+      if (this.rangedFireCooldown <= 0 && dist < 520) {
         const angle = Math.atan2(dy, dx);
         enemyBullets.push({
           x: this.x + Math.cos(angle) * (this.radius + 6),
           y: this.y + Math.sin(angle) * (this.radius + 6),
-          vx: Math.cos(angle) * 370,
-          vy: Math.sin(angle) * 370,
+          vx: Math.cos(angle) * 300,
+          vy: Math.sin(angle) * 300,
           radius: 5.5,
-          damage: 14,
+          damage: 11,
           color: '#f43f5e',
         });
-        this.rangedFireCooldown = 1.65;
+        this.rangedFireCooldown = 2.3;
       }
     }
 
@@ -168,20 +168,20 @@ export class Enemy {
       this.bossFireCooldown -= dt;
       if (this.bossFireCooldown <= 0) {
         const baseAngle = Math.atan2(dy, dx);
-        const count = 9;
-        const spread = 1.75;
+        const count = 7;
+        const spread = 1.5;
         for (let i = 0; i < count; i++) {
           const angle = baseAngle + (i / (count - 1) - 0.5) * spread;
           enemyBullets.push({
             x: this.x + Math.cos(angle) * (this.radius + 6),
             y: this.y + Math.sin(angle) * (this.radius + 6),
-            vx: Math.cos(angle) * 320,
-            vy: Math.sin(angle) * 320,
+            vx: Math.cos(angle) * 260,
+            vy: Math.sin(angle) * 260,
             radius: 7,
-            damage: 20,
+            damage: 15,
           });
         }
-        this.bossFireCooldown = 1.65;
+        this.bossFireCooldown = 2.4;
       }
     }
   }
