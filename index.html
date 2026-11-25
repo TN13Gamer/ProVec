@@ -7,7 +7,112 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <canvas id="gameCanvas" width="1280" height="720"></canvas>
+  <div class="game-shell">
+    <!-- Top HUD outside the arena -->
+    <header class="hud-top" id="hudTop">
+      <div class="hud-panel hud-health">
+        <div class="hud-row">
+          <span class="hud-label">SHIELD INTEGRITY</span>
+          <span class="hud-value" id="hudHealthText">100 / 100</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="hudHealthBar" style="width: 100%"></div>
+        </div>
+      </div>
+
+      <div class="hud-panel hud-wave">
+        <span class="hud-label">SECTOR WAVE</span>
+        <span class="hud-wave-value" id="hudWaveText">WAVE 1 / 5</span>
+      </div>
+
+      <div class="hud-right-group">
+        <div class="hud-panel hud-score">
+          <span class="hud-label">SCORE</span>
+          <span class="hud-score-value" id="hudScoreText">0</span>
+        </div>
+        <button type="button" class="btn-pause" id="btnPause" title="Pause (P / Esc)">PAUSE</button>
+      </div>
+    </header>
+
+    <!-- Boss Health Bar (only visible during Boss fight) -->
+    <div class="boss-bar-wrap hidden" id="bossBarWrap">
+      <div class="boss-row">
+        <span class="boss-name">BOSS — OVERLORD JUGGERNAUT</span>
+        <span class="boss-hp" id="bossHealthText">1425 / 1425</span>
+      </div>
+      <div class="boss-track">
+        <div class="boss-fill" id="bossHealthBar" style="width: 100%"></div>
+      </div>
+    </div>
+
+    <!-- Pure Arena Canvas -->
+    <main class="arena-frame">
+      <canvas id="gameCanvas" width="1280" height="720"></canvas>
+    </main>
+
+    <!-- Bottom Loadout & Abilities Bar outside the arena -->
+    <footer class="hud-bottom" id="hudBottom">
+      <div class="weapon-card active" id="cardPrimary">
+        <span class="slot-tag">[1] PULSE RIFLE</span>
+        <span class="slot-ammo" id="ammoPrimary">30 / 120</span>
+      </div>
+      <div class="weapon-card" id="cardSecondary">
+        <span class="slot-tag">[2] SCATTER GUN</span>
+        <span class="slot-ammo" id="ammoSecondary">6 / 24</span>
+      </div>
+
+      <div class="ability-card ready" id="cardSlide">
+        <span class="ability-label">SLIDE</span>
+        <span class="ability-value" id="valSlide">SHIFT</span>
+      </div>
+      <div class="ability-card ready" id="cardDodge">
+        <span class="ability-label">DODGE</span>
+        <span class="ability-value" id="valDodge">E / RMB</span>
+      </div>
+      <div class="ability-card ready" id="cardGrenade">
+        <span class="ability-label">GRENADE [G]</span>
+        <span class="ability-value" id="valGrenade">x2</span>
+      </div>
+      <div class="ability-card ready" id="cardFlash">
+        <span class="ability-label">FLASH [F]</span>
+        <span class="ability-value" id="valFlash">x2</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- External Menu Modal (Main Menu / Pause / Game Over / Victory) -->
+  <div class="menu-backdrop" id="menuOverlay">
+    <div class="menu-card" id="menuCard">
+      <h1 class="menu-title" id="menuTitle">LAST STAND</h1>
+      <p class="menu-subtitle" id="menuSubtitle">TOP-DOWN SCI-FI SURVIVAL ARENA</p>
+
+      <div class="menu-stats hidden" id="menuStats">
+        <div class="stat-item">
+          <span class="stat-label">FINAL SCORE</span>
+          <span class="stat-value" id="menuFinalScore">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label" id="menuWaveLabel">WAVE REACHED</span>
+          <span class="stat-value" id="menuFinalWave">1</span>
+        </div>
+      </div>
+
+      <div class="menu-controls" id="menuControls">
+        <div><strong>WASD</strong> Move &nbsp;|&nbsp; <strong>MOUSE / SPACE</strong> Aim &amp; Fire &nbsp;|&nbsp; <strong>R</strong> Reload</div>
+        <div><strong>1 / 2 / Q</strong> Switch Gun &nbsp;|&nbsp; <strong>SHIFT</strong> Slide &nbsp;|&nbsp; <strong>E / RMB</strong> Dodge</div>
+        <div><strong>G</strong> Grenade &nbsp;|&nbsp; <strong>F</strong> Flashbang &nbsp;|&nbsp; <strong>P / ESC</strong> Pause</div>
+      </div>
+
+      <div class="menu-actions">
+        <button type="button" class="btn-sci btn-primary" id="btnStart">START MISSION</button>
+        <button type="button" class="btn-sci btn-primary hidden" id="btnResume">RESUME</button>
+        <button type="button" class="btn-sci btn-secondary hidden" id="btnRestart">RESTART</button>
+      </div>
+
+      <p class="menu-hint" id="menuHint">Click START MISSION or press ENTER to deploy</p>
+    </div>
+  </div>
+
   <script type="module" src="./main.js"></script>
 </body>
 </html>

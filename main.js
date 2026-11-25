@@ -96,10 +96,17 @@ export function resumeGame() {
   }
 }
 
+export function pauseGame() {
+  if (gameState.state === 'playing') {
+    gameState.state = 'paused';
+  }
+}
+
 const ui = new GameUI(canvas, {
   onStart: startGame,
   onRestart: restart,
   onResume: resumeGame,
+  onPause: pauseGame,
 });
 
 /**

@@ -1,7 +1,7 @@
 /**
  * UI and visual presentation for LAST STAND.
- * Renders the dark sci-fi arena background, HUD (health, score, wave),
- * Main Menu, Game Over, Victory screens, and interactive buttons.
+ * Renders the arena background on canvas and drives the external DOM HUD & menus
+ * so the playable game screen stays completely uncluttered.
  */
 
 const DEFAULT_WIDTH = 1280;
@@ -20,67 +20,14 @@ const COLORS = {
   bgDeep: '#020617',
   bgCenter: '#0f172a',
   gridMinor: 'rgba(56, 189, 248, 0.06)',
-  gridMajor: 'rgba(56, 189, 248, 0.14)',
-  accent: '#38bdf8',
-  accentBright: '#7dd3fc',
-  panelBg: 'rgba(15, 23, 42, 0.82)',
-  panelBorder: 'rgba(56, 189, 248, 0.35)',
-  textPrimary: '#f8fafc',
-  textMuted: '#94a3b8',
-  healthHigh: '#22c55e',
-  healthMid: '#eab308',
-  healthLow: '#ef4444',
-  danger: '#ef4444',
-  victory: '#22c55e',
 };
 
 /**
- * Draws a rounded rectangle path.
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} x
- * @param {number} y
- * @param {number} w
- * @param {number} h
- * @param {number} r
- */
-function roundedRectPath(ctx, x, y, w, h, r) {
-  const radius = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.lineTo(x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.lineTo(x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
-
-/**
- * Checks whether a point (px, py) lies inside a rect.
- * @param {number} px
- * @param {number} py
- * @param {{ x: number, y: number, width: number, height: number } | null} rect
- * @returns {boolean}
- */
-function isPointInRect(px, py, rect) {
-  if (!rect) return false;
-  return (
-    px >= rect.x &&
-    px <= rect.x + rect.width &&
-    py >= rect.y &&
-    py <= rect.y + rect.height
-  );
-}
-
-/**
- * Renders the dark sci-fi arena background with tactical grid, center reticle, and perimeter glow.
+ * Renders the dark sci-fi arena background onto the canvas.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} [width=1280]
  * @param {number} [height=720]
- * @param {number} [time=0] - Elapsed time in seconds for subtle animations
+ * @param {number} [time=0]
  */
 export function renderArenaBackground(ctx, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, time = 0) {
   ctx.save();
@@ -89,7 +36,6 @@ export function renderArenaBackground(ctx, width = DEFAULT_WIDTH, height = DEFAU
   const cy = height / 2;
 
   if (mapImageLoaded && mapImage && mapImage.naturalWidth > 0) {
-    // Cover-fit the map texture onto the 1280x720 arena
     const imgRatio = mapImage.naturalWidth / mapImage.naturalHeight;
     const canvasRatio = width / height;
     let drawW = width;
@@ -108,12 +54,9 @@ export function renderArenaBackground(ctx, width = DEFAULT_WIDTH, height = DEFAU
     }
 
     ctx.drawImage(mapImage, drawX, drawY, drawW, drawH);
-
-    // Subtle dark tint so entities, bullets, and HUD stay high-contrast
-    ctx.fillStyle = 'rgba(2, 6, 23, 0.28)';
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.24)';
     ctx.fillRect(0, 0, width, height);
   } else {
-    // Fallback procedural dark sci-fi grid while map loads
     const bgGrad = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(width, height) * 0.72);
     bgGrad.addColorStop(0, COLORS.bgCenter);
     bgGrad.addColorStop(0.65, '#070d1d');
@@ -136,45 +79,17 @@ export function renderArenaBackground(ctx, width = DEFAULT_WIDTH, height = DEFAU
     ctx.stroke();
   }
 
-  // Arena perimeter frame & corner brackets
-  const pad = 12;
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.16)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(pad, pad, width - pad * 2, height - pad * 2);
-
-  const cornerLen = 24;
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  // Top-left
-  ctx.moveTo(pad, pad + cornerLen);
-  ctx.lineTo(pad, pad);
-  ctx.lineTo(pad + cornerLen, pad);
-  // Top-right
-  ctx.moveTo(width - pad - cornerLen, pad);
-  ctx.lineTo(width - pad, pad);
-  ctx.lineTo(width - pad, pad + cornerLen);
-  // Bottom-left
-  ctx.moveTo(pad, height - pad - cornerLen);
-  ctx.lineTo(pad, height - pad);
-  ctx.lineTo(pad + cornerLen, height - pad);
-  // Bottom-right
-  ctx.moveTo(width - pad - cornerLen, height - pad);
-  ctx.lineTo(width - pad, height - pad);
-  ctx.lineTo(width - pad, height - pad - cornerLen);
-  ctx.stroke();
-
   // Subtle edge vignette
   const vignette = ctx.createRadialGradient(
     cx,
     cy,
-    Math.min(width, height) * 0.35,
+    Math.min(width, height) * 0.38,
     cx,
     cy,
     Math.hypot(cx, cy)
   );
   vignette.addColorStop(0, 'rgba(2, 6, 23, 0)');
-  vignette.addColorStop(1, 'rgba(2, 6, 23, 0.55)');
+  vignette.addColorStop(1, 'rgba(2, 6, 23, 0.5)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, width, height);
 
@@ -182,745 +97,84 @@ export function renderArenaBackground(ctx, width = DEFAULT_WIDTH, height = DEFAU
 }
 
 /**
- * Renders the in-game HUD: player health bar, wave indicator, and score display.
- * @param {CanvasRenderingContext2D} ctx
- * @param {{
- *   player?: { health?: number, maxHealth?: number },
- *   score?: number,
- *   wave?: number,
- *   currentWave?: number,
- *   totalWaves?: number,
- *   waveManager?: { getCurrentWaveNumber?: () => number, waves?: Array<any> },
- *   enemies?: Array<any>
- * }} gameState
- * @param {number} [width=1280]
- * @param {number} [height=720]
- * @param {number} [time=0]
- */
-export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, time = 0) {
-  ctx.save();
-
-  const player = gameState.player || {};
-  const maxHealth = Math.max(1, player.maxHealth ?? 100);
-  const health = Math.max(0, Math.min(maxHealth, player.health ?? maxHealth));
-  const healthRatio = health / maxHealth;
-
-  const score = Math.max(0, Math.floor(gameState.score ?? 0));
-  const wave =
-    gameState.wave ??
-    gameState.currentWave ??
-    gameState.waveManager?.getCurrentWaveNumber?.() ??
-    1;
-  const totalWaves = gameState.totalWaves ?? gameState.waveManager?.waves?.length ?? null;
-
-  // --- 1. Player Health Bar (Top-Left) ---
-  const hpPanelX = 24;
-  const hpPanelY = 20;
-  const hpPanelW = 264;
-  const hpPanelH = 56;
-
-  roundedRectPath(ctx, hpPanelX, hpPanelY, hpPanelW, hpPanelH, 8);
-  ctx.fillStyle = COLORS.panelBg;
-  ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = healthRatio <= 0.25 ? 'rgba(239, 68, 68, 0.7)' : COLORS.panelBorder;
-  ctx.stroke();
-
-  ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textMuted;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText('SHIELD INTEGRITY', hpPanelX + 14, hpPanelY + 9);
-
-  ctx.font = '700 13px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textPrimary;
-  ctx.textAlign = 'right';
-  ctx.fillText(`${Math.ceil(health)} / ${maxHealth}`, hpPanelX + hpPanelW - 14, hpPanelY + 8);
-
-  // Health bar track
-  const barX = hpPanelX + 14;
-  const barY = hpPanelY + 30;
-  const barW = hpPanelW - 28;
-  const barH = 14;
-
-  roundedRectPath(ctx, barX, barY, barW, barH, 4);
-  ctx.fillStyle = '#0f172a';
-  ctx.fill();
-
-  // Health bar fill
-  let barColor = COLORS.healthHigh;
-  if (healthRatio <= 0.25) {
-    const blink = 0.75 + Math.sin(time * 10) * 0.25;
-    barColor = `rgba(239, 68, 68, ${blink})`;
-  } else if (healthRatio <= 0.5) {
-    barColor = COLORS.healthMid;
-  }
-
-  if (healthRatio > 0) {
-    const fillW = Math.max(4, barW * healthRatio);
-    roundedRectPath(ctx, barX, barY, fillW, barH, 4);
-    ctx.fillStyle = barColor;
-    ctx.fill();
-  }
-
-  // Sci-fi segment ticks
-  ctx.strokeStyle = 'rgba(2, 6, 23, 0.55)';
-  ctx.lineWidth = 1.5;
-  const segments = 4;
-  for (let i = 1; i < segments; i++) {
-    const sx = barX + (barW / segments) * i;
-    ctx.beginPath();
-    ctx.moveTo(sx, barY);
-    ctx.lineTo(sx, barY + barH);
-    ctx.stroke();
-  }
-
-  // --- 2. Wave Indicator (Top-Center) ---
-  const wavePanelW = 190;
-  const wavePanelH = 48;
-  const wavePanelX = width / 2 - wavePanelW / 2;
-  const wavePanelY = 20;
-
-  roundedRectPath(ctx, wavePanelX, wavePanelY, wavePanelW, wavePanelH, 8);
-  ctx.fillStyle = COLORS.panelBg;
-  ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = COLORS.panelBorder;
-  ctx.stroke();
-
-  const waveLabel = totalWaves ? `WAVE ${wave} / ${totalWaves}` : `WAVE ${wave}`;
-  ctx.font = '800 18px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.accentBright;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(waveLabel, width / 2, wavePanelY + wavePanelH / 2 + 1);
-
-  // --- 3. Score Display (Top-Right) ---
-  const scorePanelW = 200;
-  const scorePanelH = 56;
-  const scorePanelX = width - scorePanelW - 24;
-  const scorePanelY = 20;
-
-  roundedRectPath(ctx, scorePanelX, scorePanelY, scorePanelW, scorePanelH, 8);
-  ctx.fillStyle = COLORS.panelBg;
-  ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = COLORS.panelBorder;
-  ctx.stroke();
-
-  ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textMuted;
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'top';
-  ctx.fillText('SCORE', scorePanelX + scorePanelW - 14, scorePanelY + 9);
-
-  ctx.font = '800 22px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textPrimary;
-  ctx.fillText(score.toLocaleString('en-US'), scorePanelX + scorePanelW - 14, scorePanelY + 25);
-
-  // --- 4. Weapon & Mobility Abilities Bar (Bottom-Left) ---
-  const weaponKey = player.weaponKey ?? 'primary';
-  const isPrimary = weaponKey === 'primary';
-  const slideCd = Math.max(0, player.slideCooldown ?? 0);
-  const dodgeCd = Math.max(0, player.dodgeCooldown ?? 0);
-  const grenadeCount = player.grenadeCount ?? 0;
-  const flashCount = player.flashbangCount ?? 0;
-  const ammoState = player.ammoState ?? {
-    primary: { mag: 30, reserve: 120 },
-    secondary: { mag: 6, reserve: 24 },
-  };
-  const isReloading = (player.reloadTimer ?? 0) > 0;
-
-  const loadX = 24;
-  const loadY = height - 78;
-  const loadW = 610;
-  const loadH = 58;
-
-  roundedRectPath(ctx, loadX, loadY, loadW, loadH, 8);
-  ctx.fillStyle = COLORS.panelBg;
-  ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = COLORS.panelBorder;
-  ctx.stroke();
-
-  // Primary slot [1]
-  const pAmmo = ammoState.primary;
-  roundedRectPath(ctx, loadX + 10, loadY + 8, 126, 42, 6);
-  ctx.fillStyle = isPrimary ? 'rgba(56, 189, 248, 0.22)' : 'rgba(15, 23, 42, 0.7)';
-  ctx.fill();
-  ctx.lineWidth = isPrimary ? 1.5 : 1;
-  ctx.strokeStyle = isPrimary ? '#38bdf8' : 'rgba(148, 163, 184, 0.25)';
-  ctx.stroke();
-
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = isPrimary ? '#7dd3fc' : '#64748b';
-  ctx.fillText('[1] PULSE RIFLE', loadX + 18, loadY + 13);
-  ctx.font = '700 13px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = isPrimary && isReloading ? '#fde047' : pAmmo.mag === 0 && pAmmo.reserve === 0 ? '#ef4444' : '#f8fafc';
-  ctx.fillText(isPrimary && isReloading ? 'RELOADING...' : `${pAmmo.mag} / ${pAmmo.reserve}`, loadX + 18, loadY + 28);
-
-  // Secondary slot [2]
-  const sAmmo = ammoState.secondary;
-  roundedRectPath(ctx, loadX + 144, loadY + 8, 134, 42, 6);
-  ctx.fillStyle = !isPrimary ? 'rgba(249, 115, 22, 0.22)' : 'rgba(15, 23, 42, 0.7)';
-  ctx.fill();
-  ctx.lineWidth = !isPrimary ? 1.5 : 1;
-  ctx.strokeStyle = !isPrimary ? '#f97316' : 'rgba(148, 163, 184, 0.25)';
-  ctx.stroke();
-
-  ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = !isPrimary ? '#fdba74' : '#64748b';
-  ctx.fillText('[2] SCATTER GUN', loadX + 152, loadY + 13);
-  ctx.font = '700 13px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = !isPrimary && isReloading ? '#fde047' : sAmmo.mag === 0 && sAmmo.reserve === 0 ? '#ef4444' : '#f8fafc';
-  ctx.fillText(!isPrimary && isReloading ? 'RELOADING...' : `${sAmmo.mag} / ${sAmmo.reserve}`, loadX + 152, loadY + 28);
-
-  // Slide, Dodge, Grenade & Flashbang indicators
-  const abilities = [
-    { label: 'SLIDE', sub: slideCd <= 0.01 ? 'SHIFT' : `${slideCd.toFixed(1)}s`, active: slideCd <= 0.01, x: loadX + 290, color: '#f59e0b' },
-    { label: 'DODGE', sub: dodgeCd <= 0.01 ? 'E/RMB' : `${dodgeCd.toFixed(1)}s`, active: dodgeCd <= 0.01, x: loadX + 368, color: '#38bdf8' },
-    { label: 'GREN [G]', sub: `x${grenadeCount}`, active: grenadeCount > 0, x: loadX + 446, color: '#ef4444' },
-    { label: 'FLSH [F]', sub: `x${flashCount}`, active: flashCount > 0, x: loadX + 524, color: '#e2e8f0' },
-  ];
-  for (const ab of abilities) {
-    roundedRectPath(ctx, ab.x, loadY + 8, 72, 42, 6);
-    ctx.fillStyle = ab.active ? 'rgba(30, 41, 59, 0.9)' : 'rgba(15, 23, 42, 0.6)';
-    ctx.fill();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = ab.active ? ab.color : 'rgba(148, 163, 184, 0.2)';
-    ctx.stroke();
-
-    ctx.textAlign = 'center';
-    ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
-    ctx.fillStyle = ab.active ? ab.color : '#64748b';
-    ctx.fillText(ab.label, ab.x + 36, loadY + 13);
-    ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
-    ctx.fillStyle = ab.active ? '#f8fafc' : '#64748b';
-    ctx.fillText(ab.sub, ab.x + 36, loadY + 28);
-  }
-
-  // --- 5. Boss Health Bar (Top-Center below Wave) ---
-  const boss = Array.isArray(gameState.enemies)
-    ? gameState.enemies.find((e) => e.type === 'boss' && !e.isDead)
-    : null;
-  if (boss) {
-    const bossBarW = 420;
-    const bossBarH = 38;
-    const bossBarX = width / 2 - bossBarW / 2;
-    const bossBarY = 76;
-    const bossRatio = Math.max(0, Math.min(1, boss.health / Math.max(1, boss.maxHealth)));
-
-    roundedRectPath(ctx, bossBarX, bossBarY, bossBarW, bossBarH, 8);
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(168, 85, 247, 0.75)';
-    ctx.stroke();
-
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.font = '800 11px "Segoe UI", system-ui, sans-serif';
-    ctx.fillStyle = '#e879f9';
-    ctx.fillText('BOSS — OVERLORD JUGGERNAUT', bossBarX + 12, bossBarY + 6);
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillText(`${Math.ceil(boss.health)} / ${boss.maxHealth}`, bossBarX + bossBarW - 12, bossBarY + 6);
-
-    const trackX = bossBarX + 12;
-    const trackY = bossBarY + 22;
-    const trackW = bossBarW - 24;
-    const trackH = 9;
-    roundedRectPath(ctx, trackX, trackY, trackW, trackH, 4);
-    ctx.fillStyle = '#090d1f';
-    ctx.fill();
-
-    if (bossRatio > 0) {
-      roundedRectPath(ctx, trackX, trackY, Math.max(6, trackW * bossRatio), trackH, 4);
-      ctx.fillStyle = '#a855f7';
-      ctx.fill();
-    }
-  }
-
-  ctx.restore();
-}
-
-/**
- * Draws a sci-fi styled interactive button and returns its bounding box.
- * @param {CanvasRenderingContext2D} ctx
- * @param {{ x: number, y: number, width: number, height: number, label: string, hovered?: boolean, accentColor?: string }} opts
- * @returns {{ x: number, y: number, width: number, height: number }}
- */
-function drawActionButton(ctx, opts) {
-  const { x, y, width, height, label, hovered = false, accentColor = COLORS.accent } = opts;
-
-  ctx.save();
-  roundedRectPath(ctx, x, y, width, height, 8);
-  ctx.fillStyle = hovered ? 'rgba(56, 189, 248, 0.22)' : 'rgba(15, 23, 42, 0.9)';
-  ctx.fill();
-
-  ctx.lineWidth = hovered ? 2.5 : 1.75;
-  ctx.strokeStyle = hovered ? '#e0f2fe' : accentColor;
-  ctx.stroke();
-
-  if (hovered) {
-    ctx.shadowColor = accentColor;
-    ctx.shadowBlur = 18;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-  }
-
-  ctx.font = '800 18px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = hovered ? '#ffffff' : accentColor;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, x + width / 2, y + height / 2 + 1);
-  ctx.restore();
-
-  return { x, y, width, height };
-}
-
-/**
- * Renders the Main Menu overlay.
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} [width=1280]
- * @param {number} [height=720]
- * @param {{ hoveredButton?: string | null, time?: number }} [options]
- * @returns {{ startButton: { x: number, y: number, width: number, height: number } }}
- */
-export function renderMainMenu(ctx, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, options = {}) {
-  const cx = width / 2;
-  const cy = height / 2;
-  const hovered = options.hoveredButton === 'start';
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
-  ctx.fillRect(0, 0, width, height);
-
-  // Center card
-  const cardW = 540;
-  const cardH = 380;
-  const cardX = cx - cardW / 2;
-  const cardY = cy - cardH / 2;
-
-  roundedRectPath(ctx, cardX, cardY, cardW, cardH, 14);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-  ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = COLORS.panelBorder;
-  ctx.stroke();
-
-  // Title
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(56, 189, 248, 0.55)';
-  ctx.shadowBlur = 24;
-  ctx.font = '900 58px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = '#f8fafc';
-  ctx.fillText('LAST STAND', cx, cardY + 76);
-  ctx.shadowBlur = 0;
-
-  // Subtitle
-  ctx.font = '600 14px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.accentBright;
-  ctx.fillText('TOP-DOWN SCI-FI SURVIVAL ARENA', cx, cardY + 118);
-
-  // Divider
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cardX + 48, cardY + 148);
-  ctx.lineTo(cardX + cardW - 48, cardY + 148);
-  ctx.stroke();
-
-  // Controls info
-  ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textMuted;
-  ctx.fillText('WASD — Move   |   MOUSE / SPACE — Aim & Fire   |   1 / 2 / Q — Switch Gun', cx, cardY + 174);
-  ctx.fillText('SHIFT — Slide   |   E / RMB — Dodge   |   G — Grenade   |   F — Flashbang', cx, cardY + 202);
-  ctx.fillText('P / ESC — Pause   |   R — Reload', cx, cardY + 230);
-
-  // Start Button
-  const btnW = 240;
-  const btnH = 54;
-  const startButton = drawActionButton(ctx, {
-    x: cx - btnW / 2,
-    y: cardY + 276,
-    width: btnW,
-    height: btnH,
-    label: 'START MISSION',
-    hovered,
-    accentColor: COLORS.accent,
-  });
-
-  ctx.font = '500 12px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = '#64748b';
-  ctx.fillText('Click button or press ENTER to deploy', cx, cardY + 350);
-
-  ctx.restore();
-  return { startButton };
-}
-
-/**
- * Renders the Game Over overlay with score, wave reached, and Restart button.
- * @param {CanvasRenderingContext2D} ctx
- * @param {{ score?: number, wave?: number, currentWave?: number }} [gameState]
- * @param {number} [width=1280]
- * @param {number} [height=720]
- * @param {{ hoveredButton?: string | null }} [options]
- * @returns {{ restartButton: { x: number, y: number, width: number, height: number } }}
- */
-export function renderGameOverScreen(
-  ctx,
-  gameState = {},
-  width = DEFAULT_WIDTH,
-  height = DEFAULT_HEIGHT,
-  options = {}
-) {
-  const cx = width / 2;
-  const cy = height / 2;
-  const score = Math.max(0, Math.floor(gameState.score ?? 0));
-  const wave = gameState.wave ?? gameState.currentWave ?? 1;
-  const hovered = options.hoveredButton === 'restart';
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(15, 6, 12, 0.82)';
-  ctx.fillRect(0, 0, width, height);
-
-  const cardW = 460;
-  const cardH = 320;
-  const cardX = cx - cardW / 2;
-  const cardY = cy - cardH / 2;
-
-  roundedRectPath(ctx, cardX, cardY, cardW, cardH, 14);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
-  ctx.fill();
-  ctx.lineWidth = 1.75;
-  ctx.strokeStyle = 'rgba(239, 68, 68, 0.55)';
-  ctx.stroke();
-
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(239, 68, 68, 0.55)';
-  ctx.shadowBlur = 22;
-  ctx.font = '900 48px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.danger;
-  ctx.fillText('GAME OVER', cx, cardY + 68);
-  ctx.shadowBlur = 0;
-
-  ctx.font = '600 15px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textMuted;
-  ctx.fillText('DEFENSES OVERRUN', cx, cardY + 108);
-
-  // Stats
-  ctx.font = '700 20px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textPrimary;
-  ctx.fillText(`FINAL SCORE: ${score.toLocaleString('en-US')}`, cx, cardY + 158);
-  ctx.font = '600 16px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textMuted;
-  ctx.fillText(`WAVE REACHED: ${wave}`, cx, cardY + 190);
-
-  const btnW = 220;
-  const btnH = 50;
-  const restartButton = drawActionButton(ctx, {
-    x: cx - btnW / 2,
-    y: cardY + 228,
-    width: btnW,
-    height: btnH,
-    label: 'RESTART',
-    hovered,
-    accentColor: COLORS.danger,
-  });
-
-  ctx.font = '500 12px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = '#64748b';
-  ctx.fillText('Click RESTART or press R to try again', cx, cardY + 296);
-
-  ctx.restore();
-  return { restartButton };
-}
-
-/**
- * Renders the Victory overlay with final score, waves cleared, and Restart button.
- * @param {CanvasRenderingContext2D} ctx
- * @param {{ score?: number, wave?: number, currentWave?: number, totalWaves?: number }} [gameState]
- * @param {number} [width=1280]
- * @param {number} [height=720]
- * @param {{ hoveredButton?: string | null }} [options]
- * @returns {{ restartButton: { x: number, y: number, width: number, height: number } }}
- */
-export function renderVictoryScreen(
-  ctx,
-  gameState = {},
-  width = DEFAULT_WIDTH,
-  height = DEFAULT_HEIGHT,
-  options = {}
-) {
-  const cx = width / 2;
-  const cy = height / 2;
-  const score = Math.max(0, Math.floor(gameState.score ?? 0));
-  const wave = gameState.totalWaves ?? gameState.wave ?? gameState.currentWave ?? 2;
-  const hovered = options.hoveredButton === 'restart';
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(2, 16, 14, 0.8)';
-  ctx.fillRect(0, 0, width, height);
-
-  const cardW = 460;
-  const cardH = 320;
-  const cardX = cx - cardW / 2;
-  const cardY = cy - cardH / 2;
-
-  roundedRectPath(ctx, cardX, cardY, cardW, cardH, 14);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
-  ctx.fill();
-  ctx.lineWidth = 1.75;
-  ctx.strokeStyle = 'rgba(34, 197, 94, 0.55)';
-  ctx.stroke();
-
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(34, 197, 94, 0.5)';
-  ctx.shadowBlur = 22;
-  ctx.font = '900 48px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.victory;
-  ctx.fillText('VICTORY', cx, cardY + 68);
-  ctx.shadowBlur = 0;
-
-  ctx.font = '600 15px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.accentBright;
-  ctx.fillText('ALL HOSTILE WAVES ELIMINATED', cx, cardY + 108);
-
-  // Stats
-  ctx.font = '700 20px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textPrimary;
-  ctx.fillText(`FINAL SCORE: ${score.toLocaleString('en-US')}`, cx, cardY + 158);
-  ctx.font = '600 16px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.textMuted;
-  ctx.fillText(`WAVES SURVIVED: ${wave}`, cx, cardY + 190);
-
-  const btnW = 220;
-  const btnH = 50;
-  const restartButton = drawActionButton(ctx, {
-    x: cx - btnW / 2,
-    y: cardY + 228,
-    width: btnW,
-    height: btnH,
-    label: 'PLAY AGAIN',
-    hovered,
-    accentColor: COLORS.victory,
-  });
-
-  ctx.font = '500 12px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = '#64748b';
-  ctx.fillText('Click PLAY AGAIN or press R to restart', cx, cardY + 296);
-
-  ctx.restore();
-  return { restartButton };
-}
-
-/**
- * Renders the Pause overlay with Resume and Restart buttons.
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} [width=1280]
- * @param {number} [height=720]
- * @param {{ hoveredButton?: string | null }} [options]
- * @returns {{ resumeButton: { x: number, y: number, width: number, height: number }, restartButton: { x: number, y: number, width: number, height: number } }}
- */
-export function renderPauseScreen(ctx, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, options = {}) {
-  const cx = width / 2;
-  const cy = height / 2;
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
-  ctx.fillRect(0, 0, width, height);
-
-  const cardW = 420;
-  const cardH = 300;
-  const cardX = cx - cardW / 2;
-  const cardY = cy - cardH / 2;
-
-  roundedRectPath(ctx, cardX, cardY, cardW, cardH, 14);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
-  ctx.fill();
-  ctx.lineWidth = 1.75;
-  ctx.strokeStyle = COLORS.panelBorder;
-  ctx.stroke();
-
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = '900 40px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = COLORS.accentBright;
-  ctx.fillText('PAUSED', cx, cardY + 62);
-
-  const btnW = 220;
-  const btnH = 48;
-  const resumeButton = drawActionButton(ctx, {
-    x: cx - btnW / 2,
-    y: cardY + 116,
-    width: btnW,
-    height: btnH,
-    label: 'RESUME',
-    hovered: options.hoveredButton === 'resume',
-    accentColor: COLORS.accent,
-  });
-
-  const restartButton = drawActionButton(ctx, {
-    x: cx - btnW / 2,
-    y: cardY + 180,
-    width: btnW,
-    height: btnH,
-    label: 'RESTART',
-    hovered: options.hoveredButton === 'restart',
-    accentColor: '#f59e0b',
-  });
-
-  ctx.font = '500 12px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = '#64748b';
-  ctx.fillText('Press P or ESC to resume', cx, cardY + 264);
-
-  ctx.restore();
-  return { resumeButton, restartButton };
-}
-
-/**
- * Stateful UI controller for LAST STAND.
- * Manages button hitboxes, pointer hover/click handling, and screen rendering.
+ * External DOM-driven UI controller for LAST STAND.
  */
 export class GameUI {
   /**
    * @param {HTMLCanvasElement | null} [canvas=null]
-   * @param {{ onStart?: () => void, onRestart?: () => void, onResume?: () => void }} [callbacks]
+   * @param {{ onStart?: () => void, onRestart?: () => void, onResume?: () => void, onPause?: () => void }} [callbacks]
    */
   constructor(canvas = null, callbacks = {}) {
     this.canvas = canvas;
     this.onStart = callbacks.onStart ?? null;
     this.onRestart = callbacks.onRestart ?? null;
     this.onResume = callbacks.onResume ?? null;
+    this.onPause = callbacks.onPause ?? null;
 
     this.time = 0;
-    this.hoveredButton = null;
     this.currentState = 'menu';
-    this.buttons = {
-      start: null,
-      restart: null,
-      resume: null,
-    };
 
-    this._onMouseMove = this._handleMouseMove.bind(this);
-    this._onClick = this._handleClick.bind(this);
+    this.els = typeof document !== 'undefined'
+      ? {
+          hudHealthText: document.getElementById('hudHealthText'),
+          hudHealthBar: document.getElementById('hudHealthBar'),
+          hudWaveText: document.getElementById('hudWaveText'),
+          hudScoreText: document.getElementById('hudScoreText'),
+          btnPause: document.getElementById('btnPause'),
+          bossBarWrap: document.getElementById('bossBarWrap'),
+          bossHealthText: document.getElementById('bossHealthText'),
+          bossHealthBar: document.getElementById('bossHealthBar'),
+          cardPrimary: document.getElementById('cardPrimary'),
+          cardSecondary: document.getElementById('cardSecondary'),
+          ammoPrimary: document.getElementById('ammoPrimary'),
+          ammoSecondary: document.getElementById('ammoSecondary'),
+          cardSlide: document.getElementById('cardSlide'),
+          valSlide: document.getElementById('valSlide'),
+          cardDodge: document.getElementById('cardDodge'),
+          valDodge: document.getElementById('valDodge'),
+          cardGrenade: document.getElementById('cardGrenade'),
+          valGrenade: document.getElementById('valGrenade'),
+          cardFlash: document.getElementById('cardFlash'),
+          valFlash: document.getElementById('valFlash'),
+          menuOverlay: document.getElementById('menuOverlay'),
+          menuCard: document.getElementById('menuCard'),
+          menuTitle: document.getElementById('menuTitle'),
+          menuSubtitle: document.getElementById('menuSubtitle'),
+          menuStats: document.getElementById('menuStats'),
+          menuFinalScore: document.getElementById('menuFinalScore'),
+          menuWaveLabel: document.getElementById('menuWaveLabel'),
+          menuFinalWave: document.getElementById('menuFinalWave'),
+          menuControls: document.getElementById('menuControls'),
+          btnStart: document.getElementById('btnStart'),
+          btnResume: document.getElementById('btnResume'),
+          btnRestart: document.getElementById('btnRestart'),
+          menuHint: document.getElementById('menuHint'),
+        }
+      : {};
 
-    if (this.canvas) {
-      this.attachEvents(this.canvas);
-    }
+    this._bindButtons();
+  }
+
+  _bindButtons() {
+    this.els.btnStart?.addEventListener('click', () => {
+      this.onStart?.();
+    });
+    this.els.btnResume?.addEventListener('click', () => {
+      this.onResume?.();
+    });
+    this.els.btnRestart?.addEventListener('click', () => {
+      this.onRestart?.();
+    });
+    this.els.btnPause?.addEventListener('click', () => {
+      if (this.currentState === 'playing') {
+        this.onPause?.();
+      } else if (this.currentState === 'paused') {
+        this.onResume?.();
+      }
+    });
   }
 
   /**
-   * Binds mousemove and click listeners to the target canvas.
-   * @param {HTMLCanvasElement} canvas
-   */
-  attachEvents(canvas) {
-    this.detachEvents();
-    this.canvas = canvas;
-    this.canvas.addEventListener('mousemove', this._onMouseMove);
-    this.canvas.addEventListener('click', this._onClick);
-  }
-
-  /**
-   * Removes bound canvas listeners.
-   */
-  detachEvents() {
-    if (!this.canvas) return;
-    this.canvas.removeEventListener('mousemove', this._onMouseMove);
-    this.canvas.removeEventListener('click', this._onClick);
-  }
-
-  /**
-   * @param {MouseEvent} event
-   * @returns {{ x: number, y: number }}
-   */
-  _getCanvasCoords(event) {
-    const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
-    return {
-      x: (event.clientX - rect.left) * scaleX,
-      y: (event.clientY - rect.top) * scaleY,
-    };
-  }
-
-  /**
-   * @param {MouseEvent} event
-   */
-  _handleMouseMove(event) {
-    const { x, y } = this._getCanvasCoords(event);
-    this.handlePointerMove(x, y);
-  }
-
-  /**
-   * @param {MouseEvent} event
-   */
-  _handleClick(event) {
-    const { x, y } = this._getCanvasCoords(event);
-    this.handleClick(x, y);
-  }
-
-  /**
-   * Updates hover state from canvas-space pointer coordinates.
-   * @param {number} x
-   * @param {number} y
-   */
-  handlePointerMove(x, y) {
-    if (this.currentState === 'menu' && isPointInRect(x, y, this.buttons.start)) {
-      this.hoveredButton = 'start';
-    } else if (this.currentState === 'paused' && isPointInRect(x, y, this.buttons.resume)) {
-      this.hoveredButton = 'resume';
-    } else if (
-      (this.currentState === 'paused' || this.currentState === 'gameover' || this.currentState === 'victory') &&
-      isPointInRect(x, y, this.buttons.restart)
-    ) {
-      this.hoveredButton = 'restart';
-    } else {
-      this.hoveredButton = null;
-    }
-
-    if (this.canvas) {
-      this.canvas.style.cursor = this.hoveredButton ? 'pointer' : 'crosshair';
-    }
-  }
-
-  /**
-   * Handles a click at canvas-space coordinates (x, y).
-   * @param {number} x
-   * @param {number} y
-   * @returns {'start' | 'restart' | 'resume' | null}
-   */
-  handleClick(x, y) {
-    if (this.currentState === 'menu' && isPointInRect(x, y, this.buttons.start)) {
-      if (this.onStart) this.onStart();
-      return 'start';
-    }
-
-    if (this.currentState === 'paused' && isPointInRect(x, y, this.buttons.resume)) {
-      if (this.onResume) this.onResume();
-      return 'resume';
-    }
-
-    if (
-      (this.currentState === 'paused' || this.currentState === 'gameover' || this.currentState === 'victory') &&
-      isPointInRect(x, y, this.buttons.restart)
-    ) {
-      if (this.onRestart) this.onRestart();
-      return 'restart';
-    }
-
-    return null;
-  }
-
-  /**
-   * Advances internal UI animation timer.
    * @param {number} dt
    */
   update(dt) {
@@ -928,7 +182,6 @@ export class GameUI {
   }
 
   /**
-   * Resolves normalized game state string ('menu' | 'playing' | 'gameover' | 'victory').
    * @param {object} gameState
    * @returns {string}
    */
@@ -941,7 +194,6 @@ export class GameUI {
   }
 
   /**
-   * Renders the background layer.
    * @param {CanvasRenderingContext2D} ctx
    * @param {number} [width=1280]
    * @param {number} [height=720]
@@ -951,46 +203,183 @@ export class GameUI {
   }
 
   /**
-   * Renders HUD and active screen overlay based on gameState.
+   * Updates external DOM HUD and Menu overlays from gameState.
    * @param {CanvasRenderingContext2D} ctx
    * @param {object} gameState
-   * @param {number} [width=1280]
-   * @param {number} [height=720]
    */
-  render(ctx, gameState = {}, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT) {
+  render(ctx, gameState = {}) {
     const state = this._resolveState(gameState);
     this.currentState = state;
-    this.buttons.start = null;
-    this.buttons.restart = null;
-    this.buttons.resume = null;
 
-    if (state === 'menu') {
-      const { startButton } = renderMainMenu(ctx, width, height, {
-        hoveredButton: this.hoveredButton,
-        time: this.time,
-      });
-      this.buttons.start = startButton;
+    this._updateHUD(gameState, state);
+    this._updateMenuOverlay(gameState, state);
+  }
+
+  _updateHUD(gameState, state) {
+    const player = gameState.player || {};
+    const maxHealth = Math.max(1, player.maxHealth ?? 100);
+    const health = Math.max(0, Math.min(maxHealth, player.health ?? maxHealth));
+    const ratio = (health / maxHealth) * 100;
+
+    if (this.els.hudHealthText) {
+      this.els.hudHealthText.textContent = `${Math.ceil(health)} / ${maxHealth}`;
+    }
+    if (this.els.hudHealthBar) {
+      this.els.hudHealthBar.style.width = `${ratio}%`;
+      this.els.hudHealthBar.style.backgroundColor =
+        ratio <= 25 ? '#ef4444' : ratio <= 50 ? '#eab308' : '#22c55e';
+    }
+
+    const wave =
+      gameState.wave ??
+      gameState.currentWave ??
+      gameState.waveManager?.getCurrentWaveNumber?.() ??
+      1;
+    const totalWaves = gameState.totalWaves ?? gameState.waveManager?.waves?.length ?? 5;
+    if (this.els.hudWaveText) {
+      this.els.hudWaveText.textContent = `WAVE ${wave} / ${totalWaves}`;
+    }
+
+    const score = Math.max(0, Math.floor(gameState.score ?? 0));
+    if (this.els.hudScoreText) {
+      this.els.hudScoreText.textContent = score.toLocaleString('en-US');
+    }
+
+    if (this.els.btnPause) {
+      this.els.btnPause.disabled = state !== 'playing' && state !== 'paused';
+      this.els.btnPause.textContent = state === 'paused' ? 'RESUME' : 'PAUSE';
+    }
+
+    // Boss bar
+    const boss = Array.isArray(gameState.enemies)
+      ? gameState.enemies.find((e) => e.type === 'boss' && !e.isDead)
+      : null;
+    if (this.els.bossBarWrap) {
+      this.els.bossBarWrap.classList.toggle('hidden', !boss || state === 'menu');
+      if (boss) {
+        const bRatio = Math.max(0, Math.min(100, (boss.health / Math.max(1, boss.maxHealth)) * 100));
+        if (this.els.bossHealthText) {
+          this.els.bossHealthText.textContent = `${Math.ceil(boss.health)} / ${boss.maxHealth}`;
+        }
+        if (this.els.bossHealthBar) {
+          this.els.bossHealthBar.style.width = `${bRatio}%`;
+        }
+      }
+    }
+
+    // Weapons & abilities
+    const weaponKey = player.weaponKey ?? 'primary';
+    const isPrimary = weaponKey === 'primary';
+    const isReloading = (player.reloadTimer ?? 0) > 0;
+    const ammoState = player.ammoState ?? {
+      primary: { mag: 30, reserve: 120 },
+      secondary: { mag: 6, reserve: 24 },
+    };
+
+    this.els.cardPrimary?.classList.toggle('active', isPrimary);
+    this.els.cardSecondary?.classList.toggle('secondary-active', !isPrimary);
+
+    if (this.els.ammoPrimary) {
+      this.els.ammoPrimary.textContent =
+        isPrimary && isReloading
+          ? 'RELOADING...'
+          : `${ammoState.primary.mag} / ${ammoState.primary.reserve}`;
+    }
+    if (this.els.ammoSecondary) {
+      this.els.ammoSecondary.textContent =
+        !isPrimary && isReloading
+          ? 'RELOADING...'
+          : `${ammoState.secondary.mag} / ${ammoState.secondary.reserve}`;
+    }
+
+    const slideCd = Math.max(0, player.slideCooldown ?? 0);
+    if (this.els.valSlide) {
+      this.els.valSlide.textContent = slideCd <= 0.01 ? 'SHIFT' : `${slideCd.toFixed(1)}s`;
+    }
+    this.els.cardSlide?.classList.toggle('ready', slideCd <= 0.01);
+    this.els.cardSlide?.classList.toggle('depleted', slideCd > 0.01);
+
+    const dodgeCd = Math.max(0, player.dodgeCooldown ?? 0);
+    if (this.els.valDodge) {
+      this.els.valDodge.textContent = dodgeCd <= 0.01 ? 'E / RMB' : `${dodgeCd.toFixed(1)}s`;
+    }
+    this.els.cardDodge?.classList.toggle('ready', dodgeCd <= 0.01);
+    this.els.cardDodge?.classList.toggle('depleted', dodgeCd > 0.01);
+
+    const gCount = player.grenadeCount ?? 0;
+    if (this.els.valGrenade) this.els.valGrenade.textContent = `x${gCount}`;
+    this.els.cardGrenade?.classList.toggle('ready', gCount > 0);
+    this.els.cardGrenade?.classList.toggle('depleted', gCount <= 0);
+
+    const fCount = player.flashbangCount ?? 0;
+    if (this.els.valFlash) this.els.valFlash.textContent = `x${fCount}`;
+    this.els.cardFlash?.classList.toggle('ready', fCount > 0);
+    this.els.cardFlash?.classList.toggle('depleted', fCount <= 0);
+  }
+
+  _updateMenuOverlay(gameState, state) {
+    const overlay = this.els.menuOverlay;
+    if (!overlay) return;
+
+    if (state === 'playing') {
+      overlay.classList.add('hidden');
       return;
     }
 
-    renderHUD(ctx, gameState, width, height, this.time);
+    overlay.classList.remove('hidden');
+    this.els.menuCard?.classList.remove('theme-danger', 'theme-victory');
 
-    if (state === 'paused') {
-      const { resumeButton, restartButton } = renderPauseScreen(ctx, width, height, {
-        hoveredButton: this.hoveredButton,
-      });
-      this.buttons.resume = resumeButton;
-      this.buttons.restart = restartButton;
+    const score = Math.max(0, Math.floor(gameState.score ?? 0)).toLocaleString('en-US');
+    const wave = gameState.wave ?? gameState.currentWave ?? 1;
+    const totalWaves = gameState.totalWaves ?? 5;
+
+    if (state === 'menu') {
+      this.els.menuTitle.textContent = 'LAST STAND';
+      this.els.menuSubtitle.textContent = 'TOP-DOWN SCI-FI SURVIVAL ARENA';
+      this.els.menuStats?.classList.add('hidden');
+      this.els.menuControls?.classList.remove('hidden');
+      this.els.btnStart?.classList.remove('hidden');
+      this.els.btnResume?.classList.add('hidden');
+      this.els.btnRestart?.classList.add('hidden');
+      this.els.menuHint.textContent = 'Click START MISSION or press ENTER to deploy';
+    } else if (state === 'paused') {
+      this.els.menuTitle.textContent = 'PAUSED';
+      this.els.menuSubtitle.textContent = 'MISSION SUSPENDED';
+      this.els.menuStats?.classList.add('hidden');
+      this.els.menuControls?.classList.remove('hidden');
+      this.els.btnStart?.classList.add('hidden');
+      this.els.btnResume?.classList.remove('hidden');
+      this.els.btnRestart?.classList.remove('hidden');
+      this.els.btnRestart.textContent = 'RESTART';
+      this.els.menuHint.textContent = 'Press P or ESC to resume';
     } else if (state === 'gameover') {
-      const { restartButton } = renderGameOverScreen(ctx, gameState, width, height, {
-        hoveredButton: this.hoveredButton,
-      });
-      this.buttons.restart = restartButton;
+      this.els.menuCard?.classList.add('theme-danger');
+      this.els.menuTitle.textContent = 'GAME OVER';
+      this.els.menuSubtitle.textContent = 'DEFENSES OVERRUN';
+      this.els.menuStats?.classList.remove('hidden');
+      this.els.menuFinalScore.textContent = score;
+      this.els.menuWaveLabel.textContent = 'WAVE REACHED';
+      this.els.menuFinalWave.textContent = `${wave} / ${totalWaves}`;
+      this.els.menuControls?.classList.add('hidden');
+      this.els.btnStart?.classList.add('hidden');
+      this.els.btnResume?.classList.add('hidden');
+      this.els.btnRestart?.classList.remove('hidden');
+      this.els.btnRestart.textContent = 'RESTART';
+      this.els.menuHint.textContent = 'Click RESTART or press R to try again';
     } else if (state === 'victory') {
-      const { restartButton } = renderVictoryScreen(ctx, gameState, width, height, {
-        hoveredButton: this.hoveredButton,
-      });
-      this.buttons.restart = restartButton;
+      this.els.menuCard?.classList.add('theme-victory');
+      this.els.menuTitle.textContent = 'VICTORY';
+      this.els.menuSubtitle.textContent = 'ALL HOSTILE WAVES ELIMINATED';
+      this.els.menuStats?.classList.remove('hidden');
+      this.els.menuFinalScore.textContent = score;
+      this.els.menuWaveLabel.textContent = 'WAVES SURVIVED';
+      this.els.menuFinalWave.textContent = `${totalWaves} / ${totalWaves}`;
+      this.els.menuControls?.classList.add('hidden');
+      this.els.btnStart?.classList.add('hidden');
+      this.els.btnResume?.classList.add('hidden');
+      this.els.btnRestart?.classList.remove('hidden');
+      this.els.btnRestart.textContent = 'PLAY AGAIN';
+      this.els.menuHint.textContent = 'Click PLAY AGAIN or press R to restart';
     }
   }
 }
