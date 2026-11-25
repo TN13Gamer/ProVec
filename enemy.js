@@ -178,7 +178,16 @@ export class Enemy {
       return;
     }
 
-    if (!target || target.isDead || target.isInvisible) {
+    if (!target || target.isDead) {
+      return;
+    }
+
+    if (target.isInvisible) {
+      // Wander aimlessly while player is cloaked
+      const wanderAngle = this.aiSeed + Math.sin(this.animTime * 1.3) * 1.2;
+      this.angle = wanderAngle;
+      this.x += Math.cos(wanderAngle) * this.speed * 0.35 * dt;
+      this.y += Math.sin(wanderAngle) * this.speed * 0.35 * dt;
       return;
     }
 

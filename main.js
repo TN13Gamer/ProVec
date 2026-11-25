@@ -130,7 +130,6 @@ export function restart() {
   supplyDropTimer = 16.0;
   obstacleRespawnTimer = 15.0;
   waveManager.setDifficulty(gameState.difficulty);
-  waveManager.setDifficulty(gameState.difficulty);
   waveManager.reset();
   effects.reset();
 

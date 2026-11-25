@@ -250,6 +250,10 @@ export class GameUI {
     const state = this._resolveState(gameState);
     this.currentState = state;
 
+    if (state !== 'playing') {
+      this.hideCenterPopup();
+    }
+
     this._updateHUD(gameState, state);
     this._updateMenuOverlay(gameState, state);
   }
