@@ -92,6 +92,7 @@ export function restart() {
   supplyDropTimer = 14.0;
   obstacleRespawnTimer = 15.0;
   waveManager.setDifficulty(gameState.difficulty);
+  waveManager.setDifficulty(gameState.difficulty);
   waveManager.reset();
   effects.reset();
 
@@ -157,7 +158,17 @@ function destroyObstacle(obs) {
         enemy.takeDamage(blastDamage);
         if (enemy.isDead) {
           const pts =
-            enemy.type === 'boss' ? 1500 : enemy.type === 'brute' ? 250 : enemy.type === 'spitter' ? 160 : 100;
+            enemy.type === 'boss'
+              ? 1500
+              : enemy.type === 'brute'
+              ? 250
+              : enemy.type === 'missiler'
+              ? 200
+              : enemy.type === 'spitter'
+              ? 160
+              : enemy.type === 'stalker'
+              ? 140
+              : 100;
           gameState.score += pts;
           effects.spawnExplosion(enemy.x, enemy.y, { color: enemy.color, radius: 52, count: 20, shake: 4 });
           gameState.enemies.splice(i, 1);
@@ -360,9 +371,32 @@ function update(dt) {
     }
   }
 
-  // Update Boss projectiles and check hits against player
+  // Update Enemy & Boss projectiles (including homing missiles) and check hits against player
   for (let i = gameState.enemyBullets.length - 1; i >= 0; i--) {
     const eb = gameState.enemyBullets[i];
+
+    if (eb.isMissile) {
+      eb.life -= dt;
+      if (eb.life <= 0) {
+        effects.spawnExplosion(eb.x, eb.y, { color: '#f97316', radius: 36, count: 12, shake: 2 });
+        gameState.enemyBullets.splice(i, 1);
+        continue;
+      }
+
+      if (!player.isDead && !player.isInvisible) {
+        const currentAngle = Math.atan2(eb.vy, eb.vx);
+        const targetAngle = Math.atan2(player.y - eb.y, player.x - eb.x);
+        let diff = targetAngle - currentAngle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const maxTurn = 2.3 * dt;
+        const newAngle = currentAngle + Math.max(-maxTurn, Math.min(maxTurn, diff));
+        const spd = eb.speed ?? 240;
+        eb.vx = Math.cos(newAngle) * spd;
+        eb.vy = Math.sin(newAngle) * spd;
+      }
+    }
+
     eb.x += eb.vx * dt;
     eb.y += eb.vy * dt;
 
@@ -378,7 +412,11 @@ function update(dt) {
 
     if (!player.isDead && checkCircleCollision(eb, player)) {
       player.takeDamage(eb.damage);
-      effects.spawnHit(eb.x, eb.y, { color: '#a855f7' });
+      if (eb.isMissile) {
+        effects.spawnExplosion(eb.x, eb.y, { color: '#f97316', radius: 48, count: 18, shake: 5 });
+      } else {
+        effects.spawnHit(eb.x, eb.y, { color: eb.color ?? '#a855f7' });
+      }
       gameState.enemyBullets.splice(i, 1);
     }
   }
@@ -469,15 +507,17 @@ function update(dt) {
     if (enemy.isDead) {
       const isBoss = enemy.type === 'boss';
       const isBrute = enemy.type === 'brute';
+      const isMissiler = enemy.type === 'missiler';
       const isSpitter = enemy.type === 'spitter';
+      const isStalker = enemy.type === 'stalker';
       effects.spawnExplosion(enemy.x, enemy.y, {
         color: enemy.color,
         count: isBoss ? 48 : isBrute ? 30 : 20,
         radius: isBoss ? 100 : isBrute ? 68 : 48,
         shake: isBoss ? 12 : isBrute ? 7 : 4,
       });
-      gameState.score += isBoss ? 1500 : isBrute ? 250 : isSpitter ? 160 : 100;
-      const dropChance = isBrute ? 0.3 : isSpitter ? 0.15 : 0.08;
+      gameState.score += isBoss ? 1500 : isBrute ? 250 : isMissiler ? 200 : isSpitter ? 160 : isStalker ? 140 : 100;
+      const dropChance = isBrute ? 0.3 : isMissiler ? 0.22 : isSpitter || isStalker ? 0.15 : 0.08;
       if (!isBoss && Math.random() < dropChance) {
         spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
       }
@@ -521,17 +561,47 @@ function render() {
     renderObstacles(gameState.obstacles, ctx);
     renderEnemies(gameState.enemies, ctx);
 
-    // Enemy & Boss plasma projectiles
+    // Enemy & Boss plasma projectiles / missiles
     if (gameState.enemyBullets.length > 0) {
       ctx.save();
       for (const eb of gameState.enemyBullets) {
-        ctx.beginPath();
-        ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
-        ctx.fillStyle = eb.color ?? '#c084fc';
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#ffffff';
-        ctx.stroke();
+        if (eb.isMissile) {
+          const angle = Math.atan2(eb.vy, eb.vx);
+          ctx.save();
+          ctx.translate(eb.x, eb.y);
+          ctx.rotate(angle);
+          // Thruster flame
+          ctx.fillStyle = '#fde047';
+          ctx.beginPath();
+          ctx.moveTo(-12, -3);
+          ctx.lineTo(-19, 0);
+          ctx.lineTo(-12, 3);
+          ctx.closePath();
+          ctx.fill();
+          // Missile body
+          ctx.fillStyle = '#f97316';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.4;
+          ctx.fillRect(-10, -4, 16, 8);
+          ctx.strokeRect(-10, -4, 16, 8);
+          // Red warhead nose
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.moveTo(6, -4);
+          ctx.lineTo(13, 0);
+          ctx.lineTo(6, 4);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        } else {
+          ctx.beginPath();
+          ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
+          ctx.fillStyle = eb.color ?? '#c084fc';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#ffffff';
+          ctx.stroke();
+        }
       }
       ctx.restore();
     }

@@ -1,30 +1,53 @@
 export const ENEMY_TYPES = {
+  // Melee 1: Aggressive, fast, low health
   runner: {
-    radius: 15,
-    speed: 215,
-    maxHealth: 40,
+    radius: 14,
+    speed: 235,
+    maxHealth: 28,
     damage: 13,
-    attackInterval: 0.48,
+    attackInterval: 0.45,
     color: '#84cc16',
     strokeColor: '#d9f99d',
   },
+  // Melee 2: Medium movement, medium health
+  stalker: {
+    radius: 20,
+    speed: 155,
+    maxHealth: 80,
+    damage: 18,
+    attackInterval: 0.65,
+    color: '#3b82f6',
+    strokeColor: '#bfdbfe',
+  },
+  // Melee 3: Tank, slow, very high health
   brute: {
-    radius: 26,
-    speed: 120,
-    maxHealth: 125,
-    damage: 26,
-    attackInterval: 0.78,
+    radius: 28,
+    speed: 90,
+    maxHealth: 240,
+    damage: 30,
+    attackInterval: 0.85,
     color: '#dc2626',
     strokeColor: '#fca5a5',
   },
+  // Shooter 1: Bullet shooter
   spitter: {
     radius: 17,
     speed: 145,
-    maxHealth: 52,
+    maxHealth: 50,
     damage: 12,
     attackInterval: 0.75,
     color: '#14b8a6',
     strokeColor: '#99f6e4',
+  },
+  // Shooter 2: Missile shooter
+  missiler: {
+    radius: 21,
+    speed: 105,
+    maxHealth: 90,
+    damage: 16,
+    attackInterval: 0.85,
+    color: '#f59e0b',
+    strokeColor: '#fde68a',
   },
   boss: {
     radius: 44,
@@ -128,18 +151,18 @@ export class Enemy {
 
     if (dist > 0.001) {
       this.angle = Math.atan2(dy, dx);
-      if (this.type === 'spitter') {
-        // Ranged alien maintains mid-range and strafes while shooting
+      if (this.type === 'spitter' || this.type === 'missiler') {
+        const preferredFar = this.type === 'missiler' ? 370 : 310;
+        const preferredNear = this.type === 'missiler' ? 230 : 180;
         const nx = dx / dist;
         const ny = dy / dist;
-        if (dist > 310) {
+        if (dist > preferredFar) {
           this.x += nx * currentSpeed * dt;
           this.y += ny * currentSpeed * dt;
-        } else if (dist < 180) {
+        } else if (dist < preferredNear) {
           this.x -= nx * currentSpeed * 0.75 * dt;
           this.y -= ny * currentSpeed * 0.75 * dt;
         } else {
-          // Strafe perpendicular to player
           this.x += -ny * this.strafeDir * currentSpeed * 0.65 * dt;
           this.y += nx * this.strafeDir * currentSpeed * 0.65 * dt;
         }
@@ -149,7 +172,7 @@ export class Enemy {
       }
     }
 
-    // Ranged Spitter plasma shot
+    // Shooter 1: Spitter rapid plasma bullets
     if (this.type === 'spitter' && enemyBullets) {
       this.rangedFireCooldown -= dt;
       if (this.rangedFireCooldown <= 0 && dist < 560) {
@@ -157,13 +180,34 @@ export class Enemy {
         enemyBullets.push({
           x: this.x + Math.cos(angle) * (this.radius + 6),
           y: this.y + Math.sin(angle) * (this.radius + 6),
-          vx: Math.cos(angle) * 355,
-          vy: Math.sin(angle) * 355,
+          vx: Math.cos(angle) * 380,
+          vy: Math.sin(angle) * 380,
           radius: 5.5,
-          damage: Math.round(13 * this.damageMultiplier),
+          damage: Math.round(12 * this.damageMultiplier),
           color: '#f43f5e',
         });
-        this.rangedFireCooldown = 1.75 / this.fireRateMultiplier;
+        this.rangedFireCooldown = 1.65 / this.fireRateMultiplier;
+      }
+    }
+
+    // Shooter 2: Missiler guided bio-missiles
+    if (this.type === 'missiler' && enemyBullets) {
+      this.rangedFireCooldown -= dt;
+      if (this.rangedFireCooldown <= 0 && dist < 640) {
+        const angle = Math.atan2(dy, dx);
+        enemyBullets.push({
+          isMissile: true,
+          x: this.x + Math.cos(angle) * (this.radius + 8),
+          y: this.y + Math.sin(angle) * (this.radius + 8),
+          vx: Math.cos(angle) * 240,
+          vy: Math.sin(angle) * 240,
+          speed: 240,
+          life: 2.8,
+          radius: 7.5,
+          damage: Math.round(22 * this.damageMultiplier),
+          color: '#f97316',
+        });
+        this.rangedFireCooldown = 2.7 / this.fireRateMultiplier;
       }
     }
 
@@ -392,6 +436,87 @@ export class Enemy {
       ctx.beginPath();
       ctx.arc(this.radius * 0.45, -5, 2.4, 0, Math.PI * 2);
       ctx.arc(this.radius * 0.45, 5, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 'stalker') {
+      // Medium Melee Alien: armored blue-cobalt hunter
+      ctx.strokeStyle = stunned ? '#94a3b8' : '#1e40af';
+      ctx.lineWidth = 3.2;
+      for (let side of [-1, 1]) {
+        for (let i of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(i * 5, side * 9);
+          ctx.lineTo(i * 10 + legSwing * 3, side * (this.radius + 5));
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = stunned ? '#cbd5e1' : '#1d4ed8';
+      ctx.strokeStyle = stunned ? '#ffffff' : '#93c5fd';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.radius, this.radius * 0.78, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Razor mandibles
+      ctx.fillStyle = '#dbeafe';
+      ctx.beginPath();
+      ctx.moveTo(this.radius - 4, -7);
+      ctx.lineTo(this.radius + 8, -3);
+      ctx.lineTo(this.radius - 2, -2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(this.radius - 4, 7);
+      ctx.lineTo(this.radius + 8, 3);
+      ctx.lineTo(this.radius - 2, 2);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.48, -5, 2.5, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.48, 5, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 'missiler') {
+      // Missile Shooter Alien: heavy amber carapace with twin dorsal missile pods
+      ctx.strokeStyle = stunned ? '#94a3b8' : '#78350f';
+      ctx.lineWidth = 3.4;
+      for (let side of [-1, 1]) {
+        for (let i of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(i * 5, side * 10);
+          ctx.lineTo(i * 9 + legSwing * 2, side * (this.radius + 5));
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = stunned ? '#cbd5e1' : '#b45309';
+      ctx.strokeStyle = stunned ? '#ffffff' : '#fde68a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.radius, this.radius * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Twin dorsal missile launcher pods
+      ctx.fillStyle = '#451a03';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(-6, -15, 16, 7);
+      ctx.strokeRect(-6, -15, 16, 7);
+      ctx.fillRect(-6, 8, 16, 7);
+      ctx.strokeRect(-6, 8, 16, 7);
+
+      // Glowing warhead tips
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(8, -14, 4, 5);
+      ctx.fillRect(8, 9, 4, 5);
+
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.5, -4, 2.5, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.5, 4, 2.5, 0, Math.PI * 2);
       ctx.fill();
     } else {
       // BOSS: Alien Hive Overlord
