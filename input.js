@@ -11,9 +11,15 @@ export class InputHandler {
       y: canvas.height / 2,
       isDown: false,
       justPressed: false,
+      rightDown: false,
+      rightJustPressed: false,
     };
+    this.wheelDelta = 0;
 
     this._onKeyDown = (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+      }
       if (!this.keys.has(e.code)) {
         this.justPressedKeys.add(e.code);
       }
@@ -38,13 +44,28 @@ export class InputHandler {
           this.mouse.justPressed = true;
         }
         this.mouse.isDown = true;
+      } else if (e.button === 2) {
+        if (!this.mouse.rightDown) {
+          this.mouse.rightJustPressed = true;
+        }
+        this.mouse.rightDown = true;
       }
     };
 
     this._onMouseUp = (e) => {
       if (e.button === 0) {
         this.mouse.isDown = false;
+      } else if (e.button === 2) {
+        this.mouse.rightDown = false;
       }
+    };
+
+    this._onContextMenu = (e) => {
+      e.preventDefault();
+    };
+
+    this._onWheel = (e) => {
+      this.wheelDelta += Math.sign(e.deltaY);
     };
 
     this._onBlur = () => {
@@ -52,6 +73,9 @@ export class InputHandler {
       this.justPressedKeys.clear();
       this.mouse.isDown = false;
       this.mouse.justPressed = false;
+      this.mouse.rightDown = false;
+      this.mouse.rightJustPressed = false;
+      this.wheelDelta = 0;
     };
 
     window.addEventListener('keydown', this._onKeyDown);
@@ -59,6 +83,8 @@ export class InputHandler {
     window.addEventListener('blur', this._onBlur);
     this.canvas.addEventListener('mousemove', this._onMouseMove);
     this.canvas.addEventListener('mousedown', this._onMouseDown);
+    this.canvas.addEventListener('contextmenu', this._onContextMenu);
+    this.canvas.addEventListener('wheel', this._onWheel, { passive: true });
     window.addEventListener('mouseup', this._onMouseUp);
   }
 
@@ -119,11 +145,29 @@ export class InputHandler {
   }
 
   /**
+   * Returns true if right mouse button was pressed during the current frame.
+   * @returns {boolean}
+   */
+  wasRightClicked() {
+    return this.mouse.rightJustPressed;
+  }
+
+  /**
+   * Returns non-zero scroll direction if mouse wheel moved this frame.
+   * @returns {number}
+   */
+  getWheelDelta() {
+    return this.wheelDelta;
+  }
+
+  /**
    * Clears per-frame input edge states. Call at the end of each frame.
    */
   endFrame() {
     this.justPressedKeys.clear();
     this.mouse.justPressed = false;
+    this.mouse.rightJustPressed = false;
+    this.wheelDelta = 0;
   }
 
   /**
@@ -135,6 +179,8 @@ export class InputHandler {
     window.removeEventListener('blur', this._onBlur);
     this.canvas.removeEventListener('mousemove', this._onMouseMove);
     this.canvas.removeEventListener('mousedown', this._onMouseDown);
+    this.canvas.removeEventListener('contextmenu', this._onContextMenu);
+    this.canvas.removeEventListener('wheel', this._onWheel);
     window.removeEventListener('mouseup', this._onMouseUp);
   }
 }

@@ -76,9 +76,17 @@ export function restart() {
   lastTime = performance.now();
 }
 
+export function resumeGame() {
+  if (gameState.state === 'paused') {
+    gameState.state = 'playing';
+    lastTime = performance.now();
+  }
+}
+
 const ui = new GameUI(canvas, {
   onStart: startGame,
   onRestart: restart,
+  onResume: resumeGame,
 });
 
 /**
@@ -86,14 +94,26 @@ const ui = new GameUI(canvas, {
  */
 function update(dt) {
   ui.update(dt);
-  effects.update(dt);
 
   if (gameState.state === 'menu') {
+    effects.update(dt);
     if (input.wasKeyPressed('Enter') || input.wasKeyPressed('Space')) {
       startGame();
     }
     input.endFrame();
     return;
+  }
+
+  if (input.wasKeyPressed('KeyP') || input.wasKeyPressed('Escape')) {
+    if (gameState.state === 'playing') {
+      gameState.state = 'paused';
+      input.endFrame();
+      return;
+    } else if (gameState.state === 'paused') {
+      resumeGame();
+      input.endFrame();
+      return;
+    }
   }
 
   if (input.wasKeyPressed('KeyR')) {
@@ -103,9 +123,14 @@ function update(dt) {
   }
 
   if (gameState.state !== 'playing') {
+    if (gameState.state !== 'paused') {
+      effects.update(dt);
+    }
     input.endFrame();
     return;
   }
+
+  effects.update(dt);
 
   const prevBulletCount = player.bullets.length;
   const prevPlayerHealth = player.health;

@@ -318,6 +318,79 @@ export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = D
   ctx.fillStyle = COLORS.textPrimary;
   ctx.fillText(score.toLocaleString('en-US'), scorePanelX + scorePanelW - 14, scorePanelY + 25);
 
+  // --- 4. Weapon & Mobility Abilities Bar (Bottom-Left) ---
+  const weaponKey = player.weaponKey ?? 'primary';
+  const isPrimary = weaponKey === 'primary';
+  const slideCd = Math.max(0, player.slideCooldown ?? 0);
+  const dodgeCd = Math.max(0, player.dodgeCooldown ?? 0);
+
+  const loadX = 24;
+  const loadY = height - 74;
+  const loadW = 430;
+  const loadH = 54;
+
+  roundedRectPath(ctx, loadX, loadY, loadW, loadH, 8);
+  ctx.fillStyle = COLORS.panelBg;
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = COLORS.panelBorder;
+  ctx.stroke();
+
+  // Primary slot [1]
+  roundedRectPath(ctx, loadX + 10, loadY + 8, 114, 38, 6);
+  ctx.fillStyle = isPrimary ? 'rgba(56, 189, 248, 0.22)' : 'rgba(15, 23, 42, 0.7)';
+  ctx.fill();
+  ctx.lineWidth = isPrimary ? 1.5 : 1;
+  ctx.strokeStyle = isPrimary ? '#38bdf8' : 'rgba(148, 163, 184, 0.25)';
+  ctx.stroke();
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = isPrimary ? '#7dd3fc' : '#64748b';
+  ctx.fillText('[1] PRIMARY', loadX + 18, loadY + 13);
+  ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = isPrimary ? '#f8fafc' : '#94a3b8';
+  ctx.fillText('PULSE RIFLE', loadX + 18, loadY + 26);
+
+  // Secondary slot [2]
+  roundedRectPath(ctx, loadX + 132, loadY + 8, 128, 38, 6);
+  ctx.fillStyle = !isPrimary ? 'rgba(249, 115, 22, 0.22)' : 'rgba(15, 23, 42, 0.7)';
+  ctx.fill();
+  ctx.lineWidth = !isPrimary ? 1.5 : 1;
+  ctx.strokeStyle = !isPrimary ? '#f97316' : 'rgba(148, 163, 184, 0.25)';
+  ctx.stroke();
+
+  ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = !isPrimary ? '#fdba74' : '#64748b';
+  ctx.fillText('[2] SECONDARY', loadX + 140, loadY + 13);
+  ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = !isPrimary ? '#f8fafc' : '#94a3b8';
+  ctx.fillText('SCATTER GUN', loadX + 140, loadY + 26);
+
+  // Slide & Dodge indicators
+  const abilities = [
+    { label: 'SLIDE', key: 'SHIFT', cd: slideCd, x: loadX + 272, color: '#f59e0b' },
+    { label: 'DODGE', key: 'E/RMB', cd: dodgeCd, x: loadX + 350, color: '#38bdf8' },
+  ];
+  for (const ab of abilities) {
+    const ready = ab.cd <= 0.01;
+    roundedRectPath(ctx, ab.x, loadY + 8, 70, 38, 6);
+    ctx.fillStyle = ready ? 'rgba(30, 41, 59, 0.9)' : 'rgba(15, 23, 42, 0.6)';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = ready ? ab.color : 'rgba(148, 163, 184, 0.2)';
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = ready ? ab.color : '#64748b';
+    ctx.fillText(ab.label, ab.x + 35, loadY + 13);
+    ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = ready ? '#f8fafc' : '#94a3b8';
+    ctx.fillText(ready ? ab.key : `${ab.cd.toFixed(1)}s`, ab.x + 35, loadY + 27);
+  }
+
   ctx.restore();
 }
 
@@ -410,11 +483,11 @@ export function renderMainMenu(ctx, width = DEFAULT_WIDTH, height = DEFAULT_HEIG
   ctx.stroke();
 
   // Controls info
-  ctx.font = '600 14px "Segoe UI", system-ui, sans-serif';
+  ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
   ctx.fillStyle = COLORS.textMuted;
-  ctx.fillText('WASD / ARROWS  —  Move', cx, cardY + 180);
-  ctx.fillText('MOUSE  —  Aim     |     LEFT CLICK / SPACE  —  Fire', cx, cardY + 208);
-  ctx.fillText('R  —  Quick Restart', cx, cardY + 236);
+  ctx.fillText('WASD — Move   |   MOUSE / SPACE — Aim & Fire   |   1 / 2 / Q — Switch Gun', cx, cardY + 178);
+  ctx.fillText('SHIFT — Tactical Slide   |   E / RIGHT CLICK — Dodge Roll', cx, cardY + 206);
+  ctx.fillText('P / ESC — Pause   |   R — Quick Restart', cx, cardY + 234);
 
   // Start Button
   const btnW = 240;
@@ -596,18 +669,83 @@ export function renderVictoryScreen(
 }
 
 /**
+ * Renders the Pause overlay with Resume and Restart buttons.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} [width=1280]
+ * @param {number} [height=720]
+ * @param {{ hoveredButton?: string | null }} [options]
+ * @returns {{ resumeButton: { x: number, y: number, width: number, height: number }, restartButton: { x: number, y: number, width: number, height: number } }}
+ */
+export function renderPauseScreen(ctx, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, options = {}) {
+  const cx = width / 2;
+  const cy = height / 2;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
+  ctx.fillRect(0, 0, width, height);
+
+  const cardW = 420;
+  const cardH = 300;
+  const cardX = cx - cardW / 2;
+  const cardY = cy - cardH / 2;
+
+  roundedRectPath(ctx, cardX, cardY, cardW, cardH, 14);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+  ctx.fill();
+  ctx.lineWidth = 1.75;
+  ctx.strokeStyle = COLORS.panelBorder;
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '900 40px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = COLORS.accentBright;
+  ctx.fillText('PAUSED', cx, cardY + 62);
+
+  const btnW = 220;
+  const btnH = 48;
+  const resumeButton = drawActionButton(ctx, {
+    x: cx - btnW / 2,
+    y: cardY + 116,
+    width: btnW,
+    height: btnH,
+    label: 'RESUME',
+    hovered: options.hoveredButton === 'resume',
+    accentColor: COLORS.accent,
+  });
+
+  const restartButton = drawActionButton(ctx, {
+    x: cx - btnW / 2,
+    y: cardY + 180,
+    width: btnW,
+    height: btnH,
+    label: 'RESTART',
+    hovered: options.hoveredButton === 'restart',
+    accentColor: '#f59e0b',
+  });
+
+  ctx.font = '500 12px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = '#64748b';
+  ctx.fillText('Press P or ESC to resume', cx, cardY + 264);
+
+  ctx.restore();
+  return { resumeButton, restartButton };
+}
+
+/**
  * Stateful UI controller for LAST STAND.
  * Manages button hitboxes, pointer hover/click handling, and screen rendering.
  */
 export class GameUI {
   /**
    * @param {HTMLCanvasElement | null} [canvas=null]
-   * @param {{ onStart?: () => void, onRestart?: () => void }} [callbacks]
+   * @param {{ onStart?: () => void, onRestart?: () => void, onResume?: () => void }} [callbacks]
    */
   constructor(canvas = null, callbacks = {}) {
     this.canvas = canvas;
     this.onStart = callbacks.onStart ?? null;
     this.onRestart = callbacks.onRestart ?? null;
+    this.onResume = callbacks.onResume ?? null;
 
     this.time = 0;
     this.hoveredButton = null;
@@ -615,6 +753,7 @@ export class GameUI {
     this.buttons = {
       start: null,
       restart: null,
+      resume: null,
     };
 
     this._onMouseMove = this._handleMouseMove.bind(this);
@@ -683,8 +822,10 @@ export class GameUI {
   handlePointerMove(x, y) {
     if (this.currentState === 'menu' && isPointInRect(x, y, this.buttons.start)) {
       this.hoveredButton = 'start';
+    } else if (this.currentState === 'paused' && isPointInRect(x, y, this.buttons.resume)) {
+      this.hoveredButton = 'resume';
     } else if (
-      (this.currentState === 'gameover' || this.currentState === 'victory') &&
+      (this.currentState === 'paused' || this.currentState === 'gameover' || this.currentState === 'victory') &&
       isPointInRect(x, y, this.buttons.restart)
     ) {
       this.hoveredButton = 'restart';
@@ -701,7 +842,7 @@ export class GameUI {
    * Handles a click at canvas-space coordinates (x, y).
    * @param {number} x
    * @param {number} y
-   * @returns {'start' | 'restart' | null}
+   * @returns {'start' | 'restart' | 'resume' | null}
    */
   handleClick(x, y) {
     if (this.currentState === 'menu' && isPointInRect(x, y, this.buttons.start)) {
@@ -709,8 +850,13 @@ export class GameUI {
       return 'start';
     }
 
+    if (this.currentState === 'paused' && isPointInRect(x, y, this.buttons.resume)) {
+      if (this.onResume) this.onResume();
+      return 'resume';
+    }
+
     if (
-      (this.currentState === 'gameover' || this.currentState === 'victory') &&
+      (this.currentState === 'paused' || this.currentState === 'gameover' || this.currentState === 'victory') &&
       isPointInRect(x, y, this.buttons.restart)
     ) {
       if (this.onRestart) this.onRestart();
@@ -763,6 +909,7 @@ export class GameUI {
     this.currentState = state;
     this.buttons.start = null;
     this.buttons.restart = null;
+    this.buttons.resume = null;
 
     if (state === 'menu') {
       const { startButton } = renderMainMenu(ctx, width, height, {
@@ -775,7 +922,13 @@ export class GameUI {
 
     renderHUD(ctx, gameState, width, height, this.time);
 
-    if (state === 'gameover') {
+    if (state === 'paused') {
+      const { resumeButton, restartButton } = renderPauseScreen(ctx, width, height, {
+        hoveredButton: this.hoveredButton,
+      });
+      this.buttons.resume = resumeButton;
+      this.buttons.restart = restartButton;
+    } else if (state === 'gameover') {
       const { restartButton } = renderGameOverScreen(ctx, gameState, width, height, {
         hoveredButton: this.hoveredButton,
       });

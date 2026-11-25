@@ -5,6 +5,43 @@ export const PLAYER_DEFAULTS = {
   FIRE_INTERVAL: 0.15,
   BULLET_SPEED: 750,
   BULLET_RADIUS: 4,
+  SLIDE_DURATION: 0.26,
+  SLIDE_SPEED: 660,
+  SLIDE_COOLDOWN: 1.1,
+  DODGE_DURATION: 0.24,
+  DODGE_SPEED: 620,
+  DODGE_COOLDOWN: 1.4,
+};
+
+export const WEAPONS = {
+  primary: {
+    id: 'primary',
+    slot: 1,
+    name: 'PULSE RIFLE',
+    fireInterval: 0.14,
+    bulletSpeed: 780,
+    bulletRadius: 4,
+    damage: 25,
+    pellets: 1,
+    spread: 0.02,
+    color: '#38bdf8',
+    auraRgba: '56, 189, 248',
+    coreRgba: '224, 242, 254',
+  },
+  secondary: {
+    id: 'secondary',
+    slot: 2,
+    name: 'SCATTER BLASTER',
+    fireInterval: 0.48,
+    bulletSpeed: 640,
+    bulletRadius: 4,
+    damage: 16,
+    pellets: 5,
+    spread: 0.3,
+    color: '#f97316',
+    auraRgba: '249, 115, 22',
+    coreRgba: '254, 240, 138',
+  },
 };
 
 export class Player {
@@ -41,6 +78,77 @@ export class Player {
     this.shootAnimTimer = 0;
     this.hurtTimer = 0;
     this.deathAnim = 0;
+
+    // Weapon state
+    this.weaponKey = 'primary';
+    this.weapon = WEAPONS.primary;
+
+    // Slide & Dodge state
+    this.slideTimer = 0;
+    this.slideCooldown = 0;
+    this.slideDir = { x: 1, y: 0 };
+
+    this.dodgeTimer = 0;
+    this.dodgeCooldown = 0;
+    this.dodgeDir = { x: 1, y: 0 };
+    this.isInvulnerable = false;
+    this.afterimages = [];
+  }
+
+  /**
+   * Switches between primary and secondary weapons.
+   * @param {'primary' | 'secondary'} key
+   */
+  setWeapon(key) {
+    if (key in WEAPONS && this.weaponKey !== key) {
+      this.weaponKey = key;
+      this.weapon = WEAPONS[key];
+      this.fireCooldown = Math.min(this.fireCooldown, 0.08);
+    }
+  }
+
+  /**
+   * Toggles between primary and secondary weapons.
+   */
+  toggleWeapon() {
+    this.setWeapon(this.weaponKey === 'primary' ? 'secondary' : 'primary');
+  }
+
+  /**
+   * Starts a tactical slide in the movement or aim direction.
+   * @param {{ x: number, y: number }} move
+   */
+  startSlide(move) {
+    if (this.isDead || this.slideTimer > 0 || this.dodgeTimer > 0 || this.slideCooldown > 0) {
+      return false;
+    }
+    const dir =
+      move.x !== 0 || move.y !== 0
+        ? { x: move.x, y: move.y }
+        : { x: Math.cos(this.angle), y: Math.sin(this.angle) };
+    this.slideDir = dir;
+    this.slideTimer = PLAYER_DEFAULTS.SLIDE_DURATION;
+    this.slideCooldown = PLAYER_DEFAULTS.SLIDE_COOLDOWN;
+    return true;
+  }
+
+  /**
+   * Starts an evasive dodge roll with brief invulnerability frames.
+   * @param {{ x: number, y: number }} move
+   */
+  startDodge(move) {
+    if (this.isDead || this.dodgeTimer > 0 || this.slideTimer > 0 || this.dodgeCooldown > 0) {
+      return false;
+    }
+    const dir =
+      move.x !== 0 || move.y !== 0
+        ? { x: move.x, y: move.y }
+        : { x: Math.cos(this.angle), y: Math.sin(this.angle) };
+    this.dodgeDir = dir;
+    this.dodgeTimer = PLAYER_DEFAULTS.DODGE_DURATION;
+    this.dodgeCooldown = PLAYER_DEFAULTS.DODGE_COOLDOWN;
+    this.isInvulnerable = true;
+    return true;
   }
 
   /**
@@ -62,9 +170,57 @@ export class Player {
     }
 
     const move = input.getMovementVector();
-    this.isMoving = move.x !== 0 || move.y !== 0;
-    this.x += move.x * this.speed * dt;
-    this.y += move.y * this.speed * dt;
+
+    // Weapon switching (1, 2, Q, or Mouse Wheel)
+    if (input.wasKeyPressed('Digit1')) {
+      this.setWeapon('primary');
+    } else if (input.wasKeyPressed('Digit2')) {
+      this.setWeapon('secondary');
+    } else if (input.wasKeyPressed('KeyQ') || input.getWheelDelta?.() !== 0) {
+      this.toggleWeapon();
+    }
+
+    // Cooldowns & afterimages
+    this.slideCooldown = Math.max(0, this.slideCooldown - dt);
+    this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
+    for (let i = this.afterimages.length - 1; i >= 0; i--) {
+      this.afterimages[i].life -= dt;
+      if (this.afterimages[i].life <= 0) {
+        this.afterimages.splice(i, 1);
+      }
+    }
+
+    // Trigger slide (Shift) or dodge (E / Right Click)
+    if (input.wasKeyPressed('ShiftLeft') || input.wasKeyPressed('ShiftRight')) {
+      this.startSlide(move);
+    } else if (input.wasKeyPressed('KeyE') || input.wasRightClicked?.()) {
+      this.startDodge(move);
+    }
+
+    if (this.dodgeTimer > 0) {
+      this.dodgeTimer = Math.max(0, this.dodgeTimer - dt);
+      this.isInvulnerable = this.dodgeTimer > 0;
+      this.isMoving = true;
+      this.x += this.dodgeDir.x * PLAYER_DEFAULTS.DODGE_SPEED * dt;
+      this.y += this.dodgeDir.y * PLAYER_DEFAULTS.DODGE_SPEED * dt;
+      if (Math.random() < 0.65) {
+        this.afterimages.push({ x: this.x, y: this.y, life: 0.14, maxLife: 0.14, color: '#38bdf8' });
+      }
+    } else if (this.slideTimer > 0) {
+      this.slideTimer = Math.max(0, this.slideTimer - dt);
+      this.isInvulnerable = false;
+      this.isMoving = true;
+      this.x += this.slideDir.x * PLAYER_DEFAULTS.SLIDE_SPEED * dt;
+      this.y += this.slideDir.y * PLAYER_DEFAULTS.SLIDE_SPEED * dt;
+      if (Math.random() < 0.65) {
+        this.afterimages.push({ x: this.x, y: this.y, life: 0.12, maxLife: 0.12, color: '#f59e0b' });
+      }
+    } else {
+      this.isInvulnerable = false;
+      this.isMoving = move.x !== 0 || move.y !== 0;
+      this.x += move.x * this.speed * dt;
+      this.y += move.y * this.speed * dt;
+    }
 
     this.x = Math.max(this.radius, Math.min(bounds.width - this.radius, this.x));
     this.y = Math.max(this.radius, Math.min(bounds.height - this.radius, this.y));
@@ -73,7 +229,7 @@ export class Player {
     this.angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
 
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
-    if (input.isShooting() && this.fireCooldown <= 0) {
+    if (this.dodgeTimer <= 0 && input.isShooting() && this.fireCooldown <= 0) {
       this.shoot();
     }
   }
@@ -87,22 +243,37 @@ export class Player {
       return null;
     }
 
+    const w = this.weapon || WEAPONS.primary;
     const barrelOffset = this.radius + 8;
-    const cos = Math.cos(this.angle);
-    const sin = Math.sin(this.angle);
+    const spawnX = this.x + Math.cos(this.angle) * barrelOffset;
+    const spawnY = this.y + Math.sin(this.angle) * barrelOffset;
 
-    const bullet = {
-      x: this.x + cos * barrelOffset,
-      y: this.y + sin * barrelOffset,
-      vx: cos * this.bulletSpeed,
-      vy: sin * this.bulletSpeed,
-      radius: this.bulletRadius,
-    };
+    let firstBullet = null;
+    for (let i = 0; i < w.pellets; i++) {
+      const offsetAngle =
+        w.pellets === 1
+          ? (Math.random() - 0.5) * w.spread
+          : ((i / (w.pellets - 1)) - 0.5) * w.spread + (Math.random() - 0.5) * 0.04;
+      const shotAngle = this.angle + offsetAngle;
 
-    this.bullets.push(bullet);
-    this.fireCooldown = this.fireInterval;
+      const bullet = {
+        x: spawnX,
+        y: spawnY,
+        vx: Math.cos(shotAngle) * w.bulletSpeed,
+        vy: Math.sin(shotAngle) * w.bulletSpeed,
+        radius: w.bulletRadius,
+        damage: w.damage,
+        color: w.color,
+        auraRgba: w.auraRgba,
+        coreRgba: w.coreRgba,
+      };
+      this.bullets.push(bullet);
+      if (!firstBullet) firstBullet = bullet;
+    }
+
+    this.fireCooldown = w.fireInterval;
     this.shootAnimTimer = 0.1;
-    return bullet;
+    return firstBullet;
   }
 
   /**
@@ -111,7 +282,7 @@ export class Player {
    * @returns {number} Remaining health
    */
   takeDamage(amount) {
-    if (this.isDead || amount <= 0) {
+    if (this.isDead || this.isInvulnerable || amount <= 0) {
       return this.health;
     }
 
@@ -157,6 +328,8 @@ export class Player {
       const angle = Math.atan2(b.vy, b.vx);
       const length = Math.max(22, b.radius * 6);
       const halfWidth = Math.max(3, b.radius * 0.9);
+      const auraRgba = b.auraRgba ?? '56, 189, 248';
+      const coreRgba = b.coreRgba ?? '224, 242, 254';
 
       ctx.save();
       ctx.translate(b.x, b.y);
@@ -164,9 +337,9 @@ export class Player {
 
       // Outer plasma aura
       const auraGrad = ctx.createLinearGradient(-length, 0, b.radius * 2, 0);
-      auraGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
-      auraGrad.addColorStop(0.55, 'rgba(56, 189, 248, 0.55)');
-      auraGrad.addColorStop(1, 'rgba(125, 211, 252, 0.95)');
+      auraGrad.addColorStop(0, `rgba(${auraRgba}, 0)`);
+      auraGrad.addColorStop(0.55, `rgba(${auraRgba}, 0.55)`);
+      auraGrad.addColorStop(1, `rgba(${auraRgba}, 0.95)`);
 
       ctx.fillStyle = auraGrad;
       ctx.beginPath();
@@ -178,7 +351,7 @@ export class Player {
       // White-hot inner core
       const coreGrad = ctx.createLinearGradient(-length * 0.7, 0, b.radius * 1.2, 0);
       coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
-      coreGrad.addColorStop(0.6, 'rgba(224, 242, 254, 0.85)');
+      coreGrad.addColorStop(0.6, `rgba(${coreRgba}, 0.85)`);
       coreGrad.addColorStop(1, '#ffffff');
 
       ctx.fillStyle = coreGrad;
@@ -191,6 +364,18 @@ export class Player {
       ctx.restore();
     }
     ctx.restore();
+
+    // Slide / Dodge afterimages
+    for (const ghost of this.afterimages) {
+      const alpha = (ghost.life / ghost.maxLife) * 0.35;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = ghost.color;
+      ctx.beginPath();
+      ctx.arc(ghost.x, ghost.y, this.radius * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     ctx.save();
     ctx.translate(this.x, this.y);
@@ -208,6 +393,13 @@ export class Player {
     if (this.isDead) {
       ctx.rotate(facing * (Math.PI / 2) * this.deathAnim);
       ctx.globalAlpha = 0.85;
+    } else if (this.dodgeTimer > 0) {
+      const rollProgress = 1 - this.dodgeTimer / PLAYER_DEFAULTS.DODGE_DURATION;
+      ctx.rotate(facing * rollProgress * Math.PI * 2);
+      ctx.globalAlpha = 0.85;
+    } else if (this.slideTimer > 0) {
+      ctx.translate(0, 5);
+      ctx.rotate(-facing * 0.35);
     } else {
       ctx.translate(0, -bob);
     }
