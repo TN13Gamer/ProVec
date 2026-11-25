@@ -323,13 +323,18 @@ export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = D
   const isPrimary = weaponKey === 'primary';
   const slideCd = Math.max(0, player.slideCooldown ?? 0);
   const dodgeCd = Math.max(0, player.dodgeCooldown ?? 0);
-  const grenadeCd = Math.max(0, player.grenadeCooldown ?? 0);
-  const flashCd = Math.max(0, player.flashbangCooldown ?? 0);
+  const grenadeCount = player.grenadeCount ?? 0;
+  const flashCount = player.flashbangCount ?? 0;
+  const ammoState = player.ammoState ?? {
+    primary: { mag: 30, reserve: 120 },
+    secondary: { mag: 6, reserve: 24 },
+  };
+  const isReloading = (player.reloadTimer ?? 0) > 0;
 
   const loadX = 24;
-  const loadY = height - 74;
-  const loadW = 586;
-  const loadH = 54;
+  const loadY = height - 78;
+  const loadW = 610;
+  const loadH = 58;
 
   roundedRectPath(ctx, loadX, loadY, loadW, loadH, 8);
   ctx.fillStyle = COLORS.panelBg;
@@ -339,7 +344,8 @@ export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = D
   ctx.stroke();
 
   // Primary slot [1]
-  roundedRectPath(ctx, loadX + 10, loadY + 8, 114, 38, 6);
+  const pAmmo = ammoState.primary;
+  roundedRectPath(ctx, loadX + 10, loadY + 8, 126, 42, 6);
   ctx.fillStyle = isPrimary ? 'rgba(56, 189, 248, 0.22)' : 'rgba(15, 23, 42, 0.7)';
   ctx.fill();
   ctx.lineWidth = isPrimary ? 1.5 : 1;
@@ -350,13 +356,14 @@ export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = D
   ctx.textBaseline = 'top';
   ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
   ctx.fillStyle = isPrimary ? '#7dd3fc' : '#64748b';
-  ctx.fillText('[1] PRIMARY', loadX + 18, loadY + 13);
-  ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = isPrimary ? '#f8fafc' : '#94a3b8';
-  ctx.fillText('PULSE RIFLE', loadX + 18, loadY + 26);
+  ctx.fillText('[1] PULSE RIFLE', loadX + 18, loadY + 13);
+  ctx.font = '700 13px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = isPrimary && isReloading ? '#fde047' : pAmmo.mag === 0 && pAmmo.reserve === 0 ? '#ef4444' : '#f8fafc';
+  ctx.fillText(isPrimary && isReloading ? 'RELOADING...' : `${pAmmo.mag} / ${pAmmo.reserve}`, loadX + 18, loadY + 28);
 
   // Secondary slot [2]
-  roundedRectPath(ctx, loadX + 132, loadY + 8, 128, 38, 6);
+  const sAmmo = ammoState.secondary;
+  roundedRectPath(ctx, loadX + 144, loadY + 8, 134, 42, 6);
   ctx.fillStyle = !isPrimary ? 'rgba(249, 115, 22, 0.22)' : 'rgba(15, 23, 42, 0.7)';
   ctx.fill();
   ctx.lineWidth = !isPrimary ? 1.5 : 1;
@@ -365,34 +372,33 @@ export function renderHUD(ctx, gameState = {}, width = DEFAULT_WIDTH, height = D
 
   ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
   ctx.fillStyle = !isPrimary ? '#fdba74' : '#64748b';
-  ctx.fillText('[2] SECONDARY', loadX + 140, loadY + 13);
-  ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = !isPrimary ? '#f8fafc' : '#94a3b8';
-  ctx.fillText('SCATTER GUN', loadX + 140, loadY + 26);
+  ctx.fillText('[2] SCATTER GUN', loadX + 152, loadY + 13);
+  ctx.font = '700 13px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = !isPrimary && isReloading ? '#fde047' : sAmmo.mag === 0 && sAmmo.reserve === 0 ? '#ef4444' : '#f8fafc';
+  ctx.fillText(!isPrimary && isReloading ? 'RELOADING...' : `${sAmmo.mag} / ${sAmmo.reserve}`, loadX + 152, loadY + 28);
 
   // Slide, Dodge, Grenade & Flashbang indicators
   const abilities = [
-    { label: 'SLIDE', key: 'SHIFT', cd: slideCd, x: loadX + 272, color: '#f59e0b' },
-    { label: 'DODGE', key: 'E/RMB', cd: dodgeCd, x: loadX + 350, color: '#38bdf8' },
-    { label: 'GRENADE', key: 'G', cd: grenadeCd, x: loadX + 428, color: '#ef4444' },
-    { label: 'FLASH', key: 'F', cd: flashCd, x: loadX + 506, color: '#e2e8f0' },
+    { label: 'SLIDE', sub: slideCd <= 0.01 ? 'SHIFT' : `${slideCd.toFixed(1)}s`, active: slideCd <= 0.01, x: loadX + 290, color: '#f59e0b' },
+    { label: 'DODGE', sub: dodgeCd <= 0.01 ? 'E/RMB' : `${dodgeCd.toFixed(1)}s`, active: dodgeCd <= 0.01, x: loadX + 368, color: '#38bdf8' },
+    { label: 'GREN [G]', sub: `x${grenadeCount}`, active: grenadeCount > 0, x: loadX + 446, color: '#ef4444' },
+    { label: 'FLSH [F]', sub: `x${flashCount}`, active: flashCount > 0, x: loadX + 524, color: '#e2e8f0' },
   ];
   for (const ab of abilities) {
-    const ready = ab.cd <= 0.01;
-    roundedRectPath(ctx, ab.x, loadY + 8, 70, 38, 6);
-    ctx.fillStyle = ready ? 'rgba(30, 41, 59, 0.9)' : 'rgba(15, 23, 42, 0.6)';
+    roundedRectPath(ctx, ab.x, loadY + 8, 72, 42, 6);
+    ctx.fillStyle = ab.active ? 'rgba(30, 41, 59, 0.9)' : 'rgba(15, 23, 42, 0.6)';
     ctx.fill();
     ctx.lineWidth = 1;
-    ctx.strokeStyle = ready ? ab.color : 'rgba(148, 163, 184, 0.2)';
+    ctx.strokeStyle = ab.active ? ab.color : 'rgba(148, 163, 184, 0.2)';
     ctx.stroke();
 
     ctx.textAlign = 'center';
     ctx.font = '700 10px "Segoe UI", system-ui, sans-serif';
-    ctx.fillStyle = ready ? ab.color : '#64748b';
-    ctx.fillText(ab.label, ab.x + 35, loadY + 13);
-    ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
-    ctx.fillStyle = ready ? '#f8fafc' : '#94a3b8';
-    ctx.fillText(ready ? ab.key : `${ab.cd.toFixed(1)}s`, ab.x + 35, loadY + 27);
+    ctx.fillStyle = ab.active ? ab.color : '#64748b';
+    ctx.fillText(ab.label, ab.x + 36, loadY + 13);
+    ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = ab.active ? '#f8fafc' : '#64748b';
+    ctx.fillText(ab.sub, ab.x + 36, loadY + 28);
   }
 
   // --- 5. Boss Health Bar (Top-Center below Wave) ---
@@ -534,7 +540,7 @@ export function renderMainMenu(ctx, width = DEFAULT_WIDTH, height = DEFAULT_HEIG
   ctx.fillStyle = COLORS.textMuted;
   ctx.fillText('WASD — Move   |   MOUSE / SPACE — Aim & Fire   |   1 / 2 / Q — Switch Gun', cx, cardY + 174);
   ctx.fillText('SHIFT — Slide   |   E / RMB — Dodge   |   G — Grenade   |   F — Flashbang', cx, cardY + 202);
-  ctx.fillText('P / ESC — Pause   |   R — Quick Restart', cx, cardY + 230);
+  ctx.fillText('P / ESC — Pause   |   R — Reload', cx, cardY + 230);
 
   // Start Button
   const btnW = 240;

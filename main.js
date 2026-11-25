@@ -5,6 +5,13 @@ import { WaveManager, SURVIVAL_WAVES } from './waves.js';
 import { resolveCombatCollisions, checkCircleCollision } from './collision.js';
 import { GameUI } from './ui.js';
 import { EffectsManager } from './effects.js';
+import {
+  spawnPickup,
+  chooseRandomPickupType,
+  updatePickups,
+  renderPickups,
+  PICKUP_TYPES,
+} from './pickups.js';
 
 export const CANVAS_WIDTH = 1280;
 export const CANVAS_HEIGHT = 720;
@@ -44,12 +51,14 @@ const gameState = {
   player,
   enemies: [],
   enemyBullets: [],
+  pickups: [],
   bullets: player.bullets,
   waveManager,
 };
 
 let lastTime = 0;
 let animationFrameId = null;
+let supplyDropTimer = 8.5;
 
 /**
  * Starts a fresh mission from the main menu or restarts during/after a run.
@@ -65,7 +74,9 @@ export function restart() {
   player.reset(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
   gameState.enemies.length = 0;
   gameState.enemyBullets.length = 0;
+  gameState.pickups.length = 0;
   gameState.bullets = player.bullets;
+  supplyDropTimer = 8.5;
   waveManager.reset();
   effects.reset();
 
@@ -118,7 +129,7 @@ function update(dt) {
     }
   }
 
-  if (input.wasKeyPressed('KeyR')) {
+  if ((gameState.state === 'gameover' || gameState.state === 'victory') && input.wasKeyPressed('KeyR')) {
     restart();
     input.endFrame();
     return;
@@ -150,6 +161,35 @@ function update(dt) {
   gameState.wave = waveManager.getCurrentWaveNumber();
 
   updateEnemies(gameState.enemies, dt, player, gameState.enemyBullets);
+  updatePickups(gameState.pickups, dt);
+
+  // Periodic arena supply drops
+  supplyDropTimer -= dt;
+  if (supplyDropTimer <= 0) {
+    const px = 120 + Math.random() * (CANVAS_WIDTH - 240);
+    const py = 120 + Math.random() * (CANVAS_HEIGHT - 240);
+    spawnPickup(gameState.pickups, px, py, chooseRandomPickupType(player));
+    supplyDropTimer = 8.5;
+  }
+
+  // Collect pickups on touch
+  for (let i = gameState.pickups.length - 1; i >= 0; i--) {
+    const p = gameState.pickups[i];
+    if (checkCircleCollision(player, p)) {
+      if (p.type === 'ammo') {
+        player.addAmmo(30, 8);
+      } else if (p.type === 'health') {
+        player.heal(35);
+      } else if (p.type === 'grenade') {
+        player.grenadeCount += 1;
+      } else if (p.type === 'flashbang') {
+        player.flashbangCount += 1;
+      }
+      const color = PICKUP_TYPES[p.type]?.color ?? '#38bdf8';
+      effects.spawnHit(p.x, p.y, { color, count: 10, radius: 24 });
+      gameState.pickups.splice(i, 1);
+    }
+  }
 
   // Update Boss projectiles and check hits against player
   for (let i = gameState.enemyBullets.length - 1; i >= 0; i--) {
@@ -202,6 +242,9 @@ function update(dt) {
               radius: enemy.type === 'boss' ? 90 : 48,
               shake: enemy.type === 'boss' ? 10 : 4,
             });
+            if (enemy.type !== 'runner' || Math.random() < 0.35) {
+              spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
+            }
             gameState.enemies.splice(i, 1);
           }
         }
@@ -246,6 +289,9 @@ function update(dt) {
         shake: isBoss ? 12 : isBrute ? 7 : 4,
       });
       gameState.score += isBoss ? 1500 : isBrute ? 250 : 100;
+      if (!isBoss && (isBrute || Math.random() < 0.32)) {
+        spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
+      }
     } else if (enemy.health < prevHealth) {
       effects.spawnHit(enemy.x, enemy.y, { color: '#fde047' });
     }
@@ -279,6 +325,7 @@ function render() {
 
   if (gameState.state !== 'menu') {
     effects.beginShake(ctx);
+    renderPickups(gameState.pickups, ctx);
     renderEnemies(gameState.enemies, ctx);
 
     // Boss plasma projectiles

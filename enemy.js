@@ -1,28 +1,28 @@
 export const ENEMY_TYPES = {
   runner: {
     radius: 15,
-    speed: 175,
+    speed: 220,
     maxHealth: 40,
-    damage: 10,
-    attackInterval: 0.6,
+    damage: 14,
+    attackInterval: 0.42,
     color: '#f97316',
     strokeColor: '#ffedd5',
   },
   brute: {
     radius: 26,
-    speed: 95,
-    maxHealth: 120,
-    damage: 25,
-    attackInterval: 1.0,
+    speed: 125,
+    maxHealth: 125,
+    damage: 28,
+    attackInterval: 0.72,
     color: '#dc2626',
     strokeColor: '#fee2e2',
   },
   boss: {
     radius: 44,
-    speed: 82,
+    speed: 105,
     maxHealth: 950,
-    damage: 35,
-    attackInterval: 0.9,
+    damage: 38,
+    attackInterval: 0.65,
     color: '#a855f7',
     strokeColor: '#f3e8ff',
   },
@@ -51,7 +51,9 @@ export class Enemy {
     this.attackInterval = config.attackInterval;
     this.attackCooldown = 0;
     this.stunTimer = 0;
-    this.bossFireCooldown = 2.0;
+    this.bossFireCooldown = 1.65;
+    this.lungeTimer = 0;
+    this.lungeCooldown = 0;
     this.animTime = 0;
     this.color = config.color;
     this.strokeColor = config.strokeColor;
@@ -96,9 +98,21 @@ export class Enemy {
     const dy = target.y - this.y;
     const dist = Math.hypot(dx, dy);
 
+    this.lungeCooldown = Math.max(0, this.lungeCooldown - dt);
+    if (this.type === 'runner' && dist < 190 && dist > 35 && this.lungeCooldown <= 0) {
+      this.lungeTimer = 0.24;
+      this.lungeCooldown = 1.8;
+    }
+
+    let currentSpeed = this.speed;
+    if (this.lungeTimer > 0) {
+      this.lungeTimer = Math.max(0, this.lungeTimer - dt);
+      currentSpeed *= 1.85;
+    }
+
     if (dist > 0.001) {
-      this.x += (dx / dist) * this.speed * dt;
-      this.y += (dy / dist) * this.speed * dt;
+      this.x += (dx / dist) * currentSpeed * dt;
+      this.y += (dy / dist) * currentSpeed * dt;
     }
 
     // Boss radial plasma burst attack
@@ -106,20 +120,20 @@ export class Enemy {
       this.bossFireCooldown -= dt;
       if (this.bossFireCooldown <= 0) {
         const baseAngle = Math.atan2(dy, dx);
-        const count = 7;
-        const spread = 1.4;
+        const count = 9;
+        const spread = 1.75;
         for (let i = 0; i < count; i++) {
           const angle = baseAngle + (i / (count - 1) - 0.5) * spread;
           enemyBullets.push({
             x: this.x + Math.cos(angle) * (this.radius + 6),
             y: this.y + Math.sin(angle) * (this.radius + 6),
-            vx: Math.cos(angle) * 280,
-            vy: Math.sin(angle) * 280,
+            vx: Math.cos(angle) * 320,
+            vy: Math.sin(angle) * 320,
             radius: 7,
-            damage: 18,
+            damage: 20,
           });
         }
-        this.bossFireCooldown = 2.3;
+        this.bossFireCooldown = 1.65;
       }
     }
   }

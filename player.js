@@ -26,6 +26,9 @@ export const WEAPONS = {
     damage: 25,
     pellets: 1,
     spread: 0.02,
+    magSize: 30,
+    startReserve: 120,
+    reloadTime: 1.1,
     color: '#38bdf8',
     auraRgba: '56, 189, 248',
     coreRgba: '224, 242, 254',
@@ -40,6 +43,9 @@ export const WEAPONS = {
     damage: 16,
     pellets: 5,
     spread: 0.3,
+    magSize: 6,
+    startReserve: 24,
+    reloadTime: 2.3,
     color: '#f97316',
     auraRgba: '249, 115, 22',
     coreRgba: '254, 240, 138',
@@ -81,9 +87,15 @@ export class Player {
     this.hurtTimer = 0;
     this.deathAnim = 0;
 
-    // Weapon state
+    // Weapon & Ammo state
     this.weaponKey = 'primary';
     this.weapon = WEAPONS.primary;
+    this.ammoState = {
+      primary: { mag: WEAPONS.primary.magSize, reserve: WEAPONS.primary.startReserve },
+      secondary: { mag: WEAPONS.secondary.magSize, reserve: WEAPONS.secondary.startReserve },
+    };
+    this.reloadTimer = 0;
+    this.reloadDuration = 0;
 
     // Slide & Dodge state
     this.slideTimer = 0;
@@ -96,7 +108,9 @@ export class Player {
     this.isInvulnerable = false;
     this.afterimages = [];
 
-    // Throwables (Grenade & Flashbang)
+    // Collectable Throwables (Grenade & Flashbang)
+    this.grenadeCount = 2;
+    this.flashbangCount = 2;
     this.grenadeCooldown = 0;
     this.flashbangCooldown = 0;
     this.throwables = [];
@@ -104,7 +118,38 @@ export class Player {
   }
 
   /**
-   * Throws a grenade or flashbang toward (targetX, targetY).
+   * Starts reloading the active weapon if needed and reserve ammo is available.
+   */
+  startReload() {
+    if (this.isDead || this.reloadTimer > 0) return false;
+    const ammo = this.ammoState[this.weaponKey];
+    if (!ammo || ammo.mag >= this.weapon.magSize || ammo.reserve <= 0) {
+      return false;
+    }
+    this.reloadDuration = this.weapon.reloadTime;
+    this.reloadTimer = this.weapon.reloadTime;
+    return true;
+  }
+
+  /**
+   * Restores reserve ammo for both weapons.
+   */
+  addAmmo(primaryAmount = 30, secondaryAmount = 8) {
+    this.ammoState.primary.reserve += primaryAmount;
+    this.ammoState.secondary.reserve += secondaryAmount;
+  }
+
+  /**
+   * Heals the player up to maxHealth.
+   * @param {number} amount
+   */
+  heal(amount) {
+    if (this.isDead || amount <= 0) return;
+    this.health = Math.min(this.maxHealth, this.health + amount);
+  }
+
+  /**
+   * Throws a grenade or flashbang toward (targetX, targetY) if available.
    * @param {'grenade' | 'flashbang'} type
    * @param {number} targetX
    * @param {number} targetY
@@ -114,11 +159,13 @@ export class Player {
     if (this.isDead) return false;
 
     if (type === 'grenade') {
-      if (this.grenadeCooldown > 0) return false;
-      this.grenadeCooldown = PLAYER_DEFAULTS.GRENADE_COOLDOWN;
+      if (this.grenadeCount <= 0 || this.grenadeCooldown > 0) return false;
+      this.grenadeCount -= 1;
+      this.grenadeCooldown = 0.45;
     } else if (type === 'flashbang') {
-      if (this.flashbangCooldown > 0) return false;
-      this.flashbangCooldown = PLAYER_DEFAULTS.FLASHBANG_COOLDOWN;
+      if (this.flashbangCount <= 0 || this.flashbangCooldown > 0) return false;
+      this.flashbangCount -= 1;
+      this.flashbangCooldown = 0.45;
     } else {
       return false;
     }
@@ -162,6 +209,8 @@ export class Player {
     if (key in WEAPONS && this.weaponKey !== key) {
       this.weaponKey = key;
       this.weapon = WEAPONS[key];
+      this.reloadTimer = 0;
+      this.reloadDuration = 0;
       this.fireCooldown = Math.min(this.fireCooldown, 0.08);
     }
   }
@@ -233,13 +282,27 @@ export class Player {
 
     const move = input.getMovementVector();
 
-    // Weapon switching (1, 2, Q, or Mouse Wheel)
+    // Weapon switching (1, 2, Q, or Mouse Wheel) & Reload (R)
     if (input.wasKeyPressed('Digit1')) {
       this.setWeapon('primary');
     } else if (input.wasKeyPressed('Digit2')) {
       this.setWeapon('secondary');
     } else if (input.wasKeyPressed('KeyQ') || input.getWheelDelta?.() !== 0) {
       this.toggleWeapon();
+    } else if (input.wasKeyPressed('KeyR')) {
+      this.startReload();
+    }
+
+    // Active reload timer
+    if (this.reloadTimer > 0) {
+      this.reloadTimer = Math.max(0, this.reloadTimer - dt);
+      if (this.reloadTimer === 0) {
+        const ammo = this.ammoState[this.weaponKey];
+        const needed = this.weapon.magSize - ammo.mag;
+        const load = Math.min(needed, ammo.reserve);
+        ammo.mag += load;
+        ammo.reserve -= load;
+      }
     }
 
     // Cooldowns & afterimages
@@ -298,21 +361,28 @@ export class Player {
     }
 
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
-    if (this.dodgeTimer <= 0 && input.isShooting() && this.fireCooldown <= 0) {
+    if (this.dodgeTimer <= 0 && this.reloadTimer <= 0 && input.isShooting() && this.fireCooldown <= 0) {
       this.shoot();
     }
   }
 
   /**
-   * Spawns a projectile in the current aim direction.
-   * @returns {{ x: number, y: number, vx: number, vy: number, radius: number } | null}
+   * Spawns projectiles in the current aim direction if magazine has ammo.
+   * @returns {object | null}
    */
   shoot() {
-    if (this.isDead) {
+    if (this.isDead || this.reloadTimer > 0) {
       return null;
     }
 
     const w = this.weapon || WEAPONS.primary;
+    const ammo = this.ammoState[this.weaponKey];
+    if (ammo.mag <= 0) {
+      this.startReload();
+      return null;
+    }
+
+    ammo.mag -= 1;
     const barrelOffset = this.radius + 8;
     const spawnX = this.x + Math.cos(this.angle) * barrelOffset;
     const spawnY = this.y + Math.sin(this.angle) * barrelOffset;
@@ -342,6 +412,11 @@ export class Player {
 
     this.fireCooldown = w.fireInterval;
     this.shootAnimTimer = 0.1;
+
+    if (ammo.mag === 0 && ammo.reserve > 0) {
+      this.startReload();
+    }
+
     return firstBullet;
   }
 
@@ -574,6 +649,19 @@ export class Player {
     }
 
     ctx.restore();
+
+    // Reload progress bar above player
+    if (!this.isDead && this.reloadTimer > 0 && this.reloadDuration > 0) {
+      const progress = 1 - this.reloadTimer / this.reloadDuration;
+      const barW = 36;
+      const barH = 5;
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillRect(-barW / 2, -32, barW, barH);
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(-barW / 2, -32, barW * progress, barH);
+      ctx.restore();
+    }
 
     // Aimed sci-fi rifle
     if (!this.isDead) {
