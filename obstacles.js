@@ -45,14 +45,15 @@ export function createObstacle(x, y, type = 'box') {
 }
 
 /**
- * Spawns fewer obstacles (5 total) at randomized non-overlapping positions away from center.
+ * Spawns fewer obstacles (default 4) at randomized non-overlapping positions away from player/center.
  * @param {{ width: number, height: number }} bounds
- * @param {number} [count=5]
+ * @param {number} [count=4]
+ * @param {{ x: number, y: number } | null} [avoidEntity=null]
  * @returns {Array<any>}
  */
-export function createArenaObstacles(bounds, count = 5) {
-  const cx = bounds.width / 2;
-  const cy = bounds.height / 2;
+export function createArenaObstacles(bounds, count = 4, avoidEntity = null) {
+  const avoidX = avoidEntity?.x ?? bounds.width / 2;
+  const avoidY = avoidEntity?.y ?? bounds.height / 2;
   const obstacles = [];
   const margin = 105;
 
@@ -62,20 +63,20 @@ export function createArenaObstacles(bounds, count = 5) {
     const x = margin + Math.random() * (bounds.width - margin * 2);
     const y = margin + Math.random() * (bounds.height - margin * 2);
 
-    // Keep center player spawn clear
-    if (Math.hypot(x - cx, y - cy) < 150) continue;
+    // Keep player / spawn area clear
+    if (Math.hypot(x - avoidX, y - avoidY) < 150) continue;
 
     // Keep obstacles spaced apart
     let tooClose = false;
     for (const existing of obstacles) {
-      if (Math.hypot(x - existing.x, y - existing.y) < 120) {
+      if (Math.hypot(x - existing.x, y - existing.y) < 130) {
         tooClose = true;
         break;
       }
     }
     if (tooClose) continue;
 
-    const type = obstacles.length % 2 === 0 ? 'barrel' : 'box';
+    const type = Math.random() < 0.5 ? 'barrel' : 'box';
     obstacles.push(createObstacle(x, y, type));
   }
 

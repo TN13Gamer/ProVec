@@ -89,9 +89,9 @@ export function restart() {
   gameState.enemies.length = 0;
   gameState.enemyBullets.length = 0;
   gameState.pickups.length = 0;
-  gameState.obstacles = createArenaObstacles(bounds);
+  gameState.obstacles = createArenaObstacles(bounds, 3 + Math.floor(Math.random() * 2), player);
   gameState.bullets = player.bullets;
-  supplyDropTimer = 14.0;
+  supplyDropTimer = 16.0;
   obstacleRespawnTimer = 15.0;
   waveManager.setDifficulty(gameState.difficulty);
   waveManager.setDifficulty(gameState.difficulty);
@@ -268,6 +268,7 @@ function update(dt) {
 
   if (gameState.wave !== lastAnnouncedWave) {
     lastAnnouncedWave = gameState.wave;
+    gameState.obstacles = createArenaObstacles(bounds, 3 + Math.floor(Math.random() * 2), player);
     if (gameState.wave === gameState.totalWaves) {
       ui.showCenterPopup(`WAVE ${gameState.wave}`, 'FINAL WAVE — BOSS OVERLORD INBOUND', 2.8, 'boss');
     } else {
@@ -365,24 +366,24 @@ function update(dt) {
     }
   }
 
-  // Periodically respawn a barrel or supply box (max 5)
+  // Periodically respawn a barrel or supply box (max 4)
   obstacleRespawnTimer -= dt;
-  if (obstacleRespawnTimer <= 0 && gameState.obstacles.length < 5) {
+  if (obstacleRespawnTimer <= 0 && gameState.obstacles.length < 4) {
     const ox = 110 + Math.random() * (CANVAS_WIDTH - 220);
     const oy = 110 + Math.random() * (CANVAS_HEIGHT - 220);
     if (Math.hypot(ox - player.x, oy - player.y) > 150) {
       gameState.obstacles.push(createObstacle(ox, oy, Math.random() < 0.5 ? 'barrel' : 'box'));
     }
-    obstacleRespawnTimer = 16.0;
+    obstacleRespawnTimer = 18.0;
   }
 
-  // Periodic arena supply drops (less frequent now that boxes drop loot)
+  // Periodic arena supply drops
   supplyDropTimer -= dt;
   if (supplyDropTimer <= 0) {
     const px = 120 + Math.random() * (CANVAS_WIDTH - 240);
     const py = 120 + Math.random() * (CANVAS_HEIGHT - 240);
     spawnPickup(gameState.pickups, px, py, chooseRandomPickupType(player));
-    supplyDropTimer = 14.0;
+    supplyDropTimer = 16.0;
   }
 
   // Collect pickups on touch
@@ -508,10 +509,16 @@ function update(dt) {
               radius: enemy.type === 'boss' ? 90 : 48,
               shake: enemy.type === 'boss' ? 10 : 4,
             });
-            if (enemy.type !== 'runner' || Math.random() < 0.08) {
-              if (enemy.type !== 'boss' && Math.random() < (enemy.type === 'brute' ? 0.3 : 0.15)) {
-                spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
-              }
+            const dropChance =
+              enemy.type === 'brute'
+                ? 0.12
+                : enemy.type === 'missiler'
+                ? 0.08
+                : enemy.type === 'spitter' || enemy.type === 'stalker'
+                ? 0.06
+                : 0.03;
+            if (enemy.type !== 'boss' && Math.random() < dropChance) {
+              spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
             }
             gameState.enemies.splice(i, 1);
           }
@@ -561,7 +568,7 @@ function update(dt) {
       });
       gameState.score += isBoss ? 1500 : isBrute ? 250 : isMissiler ? 200 : isSpitter ? 160 : isStalker ? 140 : 100;
       player.addRage(isBoss ? 50 : isBrute ? 22 : 12);
-      const dropChance = isBrute ? 0.3 : isMissiler ? 0.22 : isSpitter || isStalker ? 0.15 : 0.08;
+      const dropChance = isBrute ? 0.12 : isMissiler ? 0.08 : isSpitter || isStalker ? 0.06 : 0.03;
       if (!isBoss && Math.random() < dropChance) {
         spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
       }
