@@ -287,6 +287,32 @@ function update(dt) {
     resolveEntityObstacleCollision(enemy, gameState.obstacles);
   }
 
+  // Player bullets vs Incoming Missiles
+  for (let i = player.bullets.length - 1; i >= 0; i--) {
+    const b = player.bullets[i];
+    let hitMissile = false;
+    for (let j = gameState.enemyBullets.length - 1; j >= 0; j--) {
+      const eb = gameState.enemyBullets[j];
+      if (!eb.isMissile) continue;
+      if (checkCircleCollision(b, eb)) {
+        effects.spawnExplosion(eb.x, eb.y, {
+          color: '#f97316',
+          secondaryColor: '#fde047',
+          radius: 38,
+          count: 14,
+          shake: 3,
+        });
+        gameState.score += 25;
+        gameState.enemyBullets.splice(j, 1);
+        hitMissile = true;
+        break;
+      }
+    }
+    if (hitMissile) {
+      player.bullets.splice(i, 1);
+    }
+  }
+
   // Player & enemy bullets vs Obstacles
   for (let i = player.bullets.length - 1; i >= 0; i--) {
     const b = player.bullets[i];

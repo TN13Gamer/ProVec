@@ -203,7 +203,7 @@ export class Enemy {
           vy: Math.sin(angle) * 195,
           speed: 195,
           life: 2.6,
-          radius: 7.5,
+          radius: 10,
           damage: Math.round(16 * this.damageMultiplier),
           color: '#f97316',
         });
