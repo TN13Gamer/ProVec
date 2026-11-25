@@ -241,7 +241,14 @@ function update(dt) {
         if (dist <= blastRadius + enemy.radius) {
           enemy.takeDamage(blastDamage);
           if (enemy.isDead) {
-            const pts = enemy.type === 'boss' ? 1500 : enemy.type === 'brute' ? 250 : 100;
+            const pts =
+              enemy.type === 'boss'
+                ? 1500
+                : enemy.type === 'brute'
+                ? 250
+                : enemy.type === 'spitter'
+                ? 160
+                : 100;
             gameState.score += pts;
             effects.spawnExplosion(enemy.x, enemy.y, {
               color: enemy.color,
@@ -289,14 +296,15 @@ function update(dt) {
     if (enemy.isDead) {
       const isBoss = enemy.type === 'boss';
       const isBrute = enemy.type === 'brute';
+      const isSpitter = enemy.type === 'spitter';
       effects.spawnExplosion(enemy.x, enemy.y, {
         color: enemy.color,
         count: isBoss ? 48 : isBrute ? 30 : 20,
         radius: isBoss ? 100 : isBrute ? 68 : 48,
         shake: isBoss ? 12 : isBrute ? 7 : 4,
       });
-      gameState.score += isBoss ? 1500 : isBrute ? 250 : 100;
-      if (!isBoss && (isBrute || Math.random() < 0.32)) {
+      gameState.score += isBoss ? 1500 : isBrute ? 250 : isSpitter ? 160 : 100;
+      if (!isBoss && (isBrute || (isSpitter && Math.random() < 0.45) || Math.random() < 0.32)) {
         spawnPickup(gameState.pickups, enemy.x, enemy.y, chooseRandomPickupType(player));
       }
     } else if (enemy.health < prevHealth) {
@@ -335,13 +343,13 @@ function render() {
     renderPickups(gameState.pickups, ctx);
     renderEnemies(gameState.enemies, ctx);
 
-    // Boss plasma projectiles
+    // Enemy & Boss plasma projectiles
     if (gameState.enemyBullets.length > 0) {
       ctx.save();
       for (const eb of gameState.enemyBullets) {
         ctx.beginPath();
         ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#c084fc';
+        ctx.fillStyle = eb.color ?? '#c084fc';
         ctx.fill();
         ctx.lineWidth = 2;
         ctx.strokeStyle = '#ffffff';

@@ -17,6 +17,15 @@ export const ENEMY_TYPES = {
     color: '#dc2626',
     strokeColor: '#fca5a5',
   },
+  spitter: {
+    radius: 17,
+    speed: 150,
+    maxHealth: 55,
+    damage: 12,
+    attackInterval: 0.7,
+    color: '#14b8a6',
+    strokeColor: '#99f6e4',
+  },
   boss: {
     radius: 44,
     speed: 105,
@@ -52,6 +61,8 @@ export class Enemy {
     this.attackCooldown = 0;
     this.stunTimer = 0;
     this.bossFireCooldown = 1.65;
+    this.rangedFireCooldown = 1.1 + Math.random() * 0.8;
+    this.strafeDir = Math.random() < 0.5 ? 1 : -1;
     this.lungeTimer = 0;
     this.lungeCooldown = 0;
     this.angle = 0;
@@ -113,8 +124,43 @@ export class Enemy {
 
     if (dist > 0.001) {
       this.angle = Math.atan2(dy, dx);
-      this.x += (dx / dist) * currentSpeed * dt;
-      this.y += (dy / dist) * currentSpeed * dt;
+      if (this.type === 'spitter') {
+        // Ranged alien maintains mid-range and strafes while shooting
+        const nx = dx / dist;
+        const ny = dy / dist;
+        if (dist > 310) {
+          this.x += nx * currentSpeed * dt;
+          this.y += ny * currentSpeed * dt;
+        } else if (dist < 180) {
+          this.x -= nx * currentSpeed * 0.75 * dt;
+          this.y -= ny * currentSpeed * 0.75 * dt;
+        } else {
+          // Strafe perpendicular to player
+          this.x += -ny * this.strafeDir * currentSpeed * 0.65 * dt;
+          this.y += nx * this.strafeDir * currentSpeed * 0.65 * dt;
+        }
+      } else {
+        this.x += (dx / dist) * currentSpeed * dt;
+        this.y += (dy / dist) * currentSpeed * dt;
+      }
+    }
+
+    // Ranged Spitter plasma shot
+    if (this.type === 'spitter' && enemyBullets) {
+      this.rangedFireCooldown -= dt;
+      if (this.rangedFireCooldown <= 0 && dist < 560) {
+        const angle = Math.atan2(dy, dx);
+        enemyBullets.push({
+          x: this.x + Math.cos(angle) * (this.radius + 6),
+          y: this.y + Math.sin(angle) * (this.radius + 6),
+          vx: Math.cos(angle) * 370,
+          vy: Math.sin(angle) * 370,
+          radius: 5.5,
+          damage: 14,
+          color: '#f43f5e',
+        });
+        this.rangedFireCooldown = 1.65;
+      }
     }
 
     // Boss radial plasma burst attack
@@ -300,6 +346,48 @@ export class Enemy {
       ctx.arc(this.radius * 0.5, -6, 2.8, 0, Math.PI * 2);
       ctx.arc(this.radius * 0.5, 6, 2.8, 0, Math.PI * 2);
       ctx.arc(this.radius * 0.65, 0, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 'spitter') {
+      // Ranged Alien Spitter (teal carapace + glowing bio-plasma sac + snout)
+      ctx.strokeStyle = stunned ? '#94a3b8' : '#0f766e';
+      ctx.lineWidth = 2.8;
+      for (let side of [-1, 1]) {
+        for (let i of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(i * 4, side * 7);
+          ctx.lineTo(i * 8 + legSwing * 2.5, side * (this.radius + 5));
+          ctx.stroke();
+        }
+      }
+
+      // Glowing plasma sac on back
+      ctx.fillStyle = stunned ? '#cbd5e1' : '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(-6, 0, this.radius * 0.52, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Main teal carapace
+      ctx.fillStyle = stunned ? '#cbd5e1' : '#0d9488';
+      ctx.strokeStyle = stunned ? '#ffffff' : '#99f6e4';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.ellipse(2, 0, this.radius * 0.9, this.radius * 0.72, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Bio-cannon snout
+      ctx.fillStyle = '#134e4a';
+      ctx.fillRect(this.radius * 0.5, -4, 10, 8);
+      ctx.fillStyle = '#fb7185';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.5 + 10, 0, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing eyes
+      ctx.fillStyle = '#fda4af';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.45, -5, 2.4, 0, Math.PI * 2);
+      ctx.arc(this.radius * 0.45, 5, 2.4, 0, Math.PI * 2);
       ctx.fill();
     } else {
       // BOSS: Alien Hive Overlord
