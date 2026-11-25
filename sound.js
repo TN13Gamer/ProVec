@@ -1,11 +1,13 @@
 /**
- * Procedural Web Audio API sound synthesizer for LAST STAND.
- * Generates zero-latency sci-fi shooting, hit, explosion, damage, dash, reload, and pickup sounds.
+ * High-quality procedural Web Audio API sound engine for LAST STAND.
+ * Uses filtered noise, sub-bass punches, and a master compressor to avoid harsh/buzzy tones.
  */
 
 export class SoundManager {
   constructor() {
     this.ctx = null;
+    this.master = null;
+    this.noiseBuffer = null;
     this.muted = false;
   }
 
@@ -15,6 +17,28 @@ export class SoundManager {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return null;
       this.ctx = new AudioCtx();
+
+      const comp = this.ctx.createDynamicsCompressor();
+      comp.threshold.value = -16;
+      comp.knee.value = 18;
+      comp.ratio.value = 6;
+      comp.attack.value = 0.003;
+      comp.release.value = 0.15;
+
+      const master = this.ctx.createGain();
+      master.gain.value = 0.55;
+      master.connect(comp);
+      comp.connect(this.ctx.destination);
+      this.master = master;
+
+      // Reusable 1-second white noise buffer
+      const len = this.ctx.sampleRate;
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      this.noiseBuffer = buf;
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
@@ -26,194 +50,106 @@ export class SoundManager {
     this._ensureContext();
   }
 
+  _playNoise(duration, filterType, startFreq, endFreq, peakGain, delay = 0) {
+    const ctx = this._ensureContext();
+    if (!ctx || !this.noiseBuffer) return;
+    const t = ctx.currentTime + delay;
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = filterType;
+    filter.frequency.setValueAtTime(startFreq, t);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(40, endFreq), t + duration);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(peakGain, t + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    src.connect(filter).connect(gain).connect(this.master);
+    src.start(t);
+    src.stop(t + duration + 0.01);
+  }
+
+  _playTone(type, startFreq, endFreq, duration, peakGain, delay = 0) {
+    const ctx = this._ensureContext();
+    if (!ctx) return;
+    const t = ctx.currentTime + delay;
+
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(startFreq, t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(25, endFreq), t + duration);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(peakGain, t + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    osc.connect(gain).connect(this.master);
+    osc.start(t);
+    osc.stop(t + duration + 0.01);
+  }
+
   /**
    * @param {'primary' | 'secondary'} [weaponKey='primary']
    * @param {boolean} [isRaging=false]
    */
   playShoot(weaponKey = 'primary', isRaging = false) {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
     if (weaponKey === 'secondary') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(isRaging ? 240 : 190, now);
-      osc.frequency.exponentialRampToValueAtTime(55, now + 0.14);
-      gain.gain.setValueAtTime(0.14, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.15);
+      // Heavy tactical shotgun boom
+      this._playNoise(0.14, 'lowpass', 1200, 180, 0.28);
+      this._playTone('sine', isRaging ? 150 : 125, 42, 0.13, 0.24);
     } else {
-      osc.type = isRaging ? 'sawtooth' : 'square';
-      osc.frequency.setValueAtTime(isRaging ? 680 : 540, now);
-      osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.09);
+      // Crisp suppressed pulse rifle pop
+      this._playNoise(0.045, 'bandpass', isRaging ? 1900 : 1500, 420, 0.12);
+      this._playTone('triangle', isRaging ? 320 : 260, 88, 0.065, 0.12);
     }
   }
 
   playHit() {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(90, now + 0.05);
-    gain.gain.setValueAtTime(0.08, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.055);
+    this._playTone('sine', 210, 95, 0.04, 0.06);
   }
 
   playExplosion(scale = 1) {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const duration = Math.min(0.45, 0.22 * scale);
-
-    // Filtered noise burst
-    const bufferSize = Math.floor(ctx.sampleRate * duration);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.5);
-    }
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(650, now);
-    filter.frequency.exponentialRampToValueAtTime(90, now + duration);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(Math.min(0.28, 0.16 * scale), now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-    noise.connect(filter).connect(gain).connect(ctx.destination);
-    noise.start(now);
+    const dur = Math.min(0.55, 0.32 * scale);
+    this._playNoise(dur, 'lowpass', 480, 55, Math.min(0.45, 0.3 * scale));
+    this._playTone('sine', 105, 28, Math.min(0.4, 0.26 * scale), Math.min(0.4, 0.28 * scale));
   }
 
   playPlayerDamage() {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(160, now);
-    osc.frequency.exponentialRampToValueAtTime(55, now + 0.18);
-    gain.gain.setValueAtTime(0.16, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.19);
+    this._playNoise(0.12, 'lowpass', 520, 120, 0.18);
+    this._playTone('triangle', 120, 48, 0.15, 0.22);
   }
 
   playPickup() {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(520, now);
-    osc.frequency.exponentialRampToValueAtTime(980, now + 0.12);
-    gain.gain.setValueAtTime(0.1, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.13);
+    this._playTone('sine', 523.25, 523.25, 0.08, 0.1, 0);
+    this._playTone('sine', 659.25, 659.25, 0.12, 0.11, 0.065);
   }
 
   playDash() {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(400, now);
-    osc.frequency.exponentialRampToValueAtTime(130, now + 0.11);
-    gain.gain.setValueAtTime(0.09, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.12);
+    this._playNoise(0.14, 'bandpass', 950, 280, 0.16);
   }
 
   playReload() {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(260, now);
-    osc.frequency.setValueAtTime(420, now + 0.05);
-    gain.gain.setValueAtTime(0.08, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.1);
+    this._playNoise(0.025, 'highpass', 1800, 900, 0.1, 0);
+    this._playNoise(0.03, 'highpass', 2200, 1100, 0.12, 0.07);
   }
 
   playRage() {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(140, now);
-    osc.frequency.exponentialRampToValueAtTime(520, now + 0.35);
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.38);
+    this._playTone('triangle', 110, 220, 0.32, 0.18, 0);
+    this._playTone('sine', 165, 330, 0.32, 0.14, 0.03);
   }
 
   playFlashbang() {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1600, now);
-    osc.frequency.exponentialRampToValueAtTime(750, now + 0.32);
-    gain.gain.setValueAtTime(0.12, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.34);
+    this._playNoise(0.16, 'bandpass', 2200, 600, 0.22);
+    this._playTone('sine', 440, 220, 0.18, 0.1);
   }
 
   playLastStand() {
-    const ctx = this._ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(300, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.28);
-    gain.gain.setValueAtTime(0.12, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.3);
+    this._playTone('sine', 293.66, 440, 0.22, 0.14, 0);
+    this._playTone('sine', 440, 587.33, 0.26, 0.14, 0.1);
   }
 }

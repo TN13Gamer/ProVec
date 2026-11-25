@@ -4,9 +4,29 @@ if (typeof Image !== 'undefined') {
     './assets/sprites/player_bullet_f1.png',
     './assets/sprites/player_bullet_f2.png',
   ]) {
-    const img = new Image();
-    img.src = src;
-    PLAYER_BULLET_FRAMES.push(img);
+    const raw = new Image();
+    const idx = PLAYER_BULLET_FRAMES.length;
+    PLAYER_BULLET_FRAMES.push(null);
+    raw.onload = () => {
+      const off = document.createElement('canvas');
+      off.width = raw.naturalWidth;
+      off.height = raw.naturalHeight;
+      const octx = off.getContext('2d');
+      octx.drawImage(raw, 0, 0);
+      const imgData = octx.getImageData(0, 0, off.width, off.height);
+      const d = imgData.data;
+      const bgR = d[0], bgG = d[1], bgB = d[2], bgA = d[3];
+      if (bgA > 10) {
+        for (let i = 0; i < d.length; i += 4) {
+          if (Math.abs(d[i] - bgR) + Math.abs(d[i + 1] - bgG) + Math.abs(d[i + 2] - bgB) < 42) {
+            d[i + 3] = 0;
+          }
+        }
+        octx.putImageData(imgData, 0, 0);
+      }
+      PLAYER_BULLET_FRAMES[idx] = off;
+    };
+    raw.src = src;
   }
 }
 
@@ -579,13 +599,12 @@ export class Player {
    * @param {CanvasRenderingContext2D} ctx
    */
   render(ctx) {
-    // Player projectiles (use PNG sprite frames when loaded, fallback to glowing energy bolts)
+    // Player projectiles (use transparent PNG sprite frames when loaded, fallback to glowing energy bolts)
     const bulletFrame =
       PLAYER_BULLET_FRAMES.length > 0
         ? PLAYER_BULLET_FRAMES[Math.floor(this.animTime * 14) % PLAYER_BULLET_FRAMES.length]
         : null;
-    const useBulletSprite =
-      bulletFrame && bulletFrame.complete && bulletFrame.naturalWidth > 0 && !this.isRaging;
+    const useBulletSprite = bulletFrame && bulletFrame.width > 0 && !this.isRaging;
 
     ctx.save();
     if (!useBulletSprite) {

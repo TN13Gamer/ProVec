@@ -22,19 +22,37 @@ import {
   renderObstacles,
 } from './obstacles.js';
 
-const ENEMY_BULLET_FRAMES = [];
-const ENEMY_MISSILE_FRAMES = [];
+function loadTransparentSprite(src, targetArr, idx) {
+  const raw = new Image();
+  raw.onload = () => {
+    const off = document.createElement('canvas');
+    off.width = raw.naturalWidth;
+    off.height = raw.naturalHeight;
+    const octx = off.getContext('2d');
+    octx.drawImage(raw, 0, 0);
+    const imgData = octx.getImageData(0, 0, off.width, off.height);
+    const d = imgData.data;
+    const bgR = d[0], bgG = d[1], bgB = d[2], bgA = d[3];
+    if (bgA > 10) {
+      for (let i = 0; i < d.length; i += 4) {
+        if (Math.abs(d[i] - bgR) + Math.abs(d[i + 1] - bgG) + Math.abs(d[i + 2] - bgB) < 42) {
+          d[i + 3] = 0;
+        }
+      }
+      octx.putImageData(imgData, 0, 0);
+    }
+    targetArr[idx] = off;
+  };
+  raw.src = src;
+}
+
+const ENEMY_BULLET_FRAMES = [null, null];
+const ENEMY_MISSILE_FRAMES = [null, null];
 if (typeof Image !== 'undefined') {
-  for (const src of ['./assets/sprites/enemy_bullet_f1.png', './assets/sprites/enemy_bullet_f2.png']) {
-    const img = new Image();
-    img.src = src;
-    ENEMY_BULLET_FRAMES.push(img);
-  }
-  for (const src of ['./assets/sprites/enemy_missile_f1.png', './assets/sprites/enemy_missile_f2.png']) {
-    const img = new Image();
-    img.src = src;
-    ENEMY_MISSILE_FRAMES.push(img);
-  }
+  loadTransparentSprite('./assets/sprites/enemy_bullet_f1.png', ENEMY_BULLET_FRAMES, 0);
+  loadTransparentSprite('./assets/sprites/enemy_bullet_f2.png', ENEMY_BULLET_FRAMES, 1);
+  loadTransparentSprite('./assets/sprites/enemy_missile_f1.png', ENEMY_MISSILE_FRAMES, 0);
+  loadTransparentSprite('./assets/sprites/enemy_missile_f2.png', ENEMY_MISSILE_FRAMES, 1);
 }
 
 export const CANVAS_WIDTH = 1280;
@@ -655,8 +673,8 @@ function render() {
       const frameIdx = Math.floor(ui.time * 12) % 2;
       const bulletImg = ENEMY_BULLET_FRAMES[frameIdx];
       const missileImg = ENEMY_MISSILE_FRAMES[frameIdx];
-      const hasBulletSprite = bulletImg && bulletImg.complete && bulletImg.naturalWidth > 0;
-      const hasMissileSprite = missileImg && missileImg.complete && missileImg.naturalWidth > 0;
+      const hasBulletSprite = bulletImg && bulletImg.width > 0;
+      const hasMissileSprite = missileImg && missileImg.width > 0;
 
       ctx.save();
       for (const eb of gameState.enemyBullets) {

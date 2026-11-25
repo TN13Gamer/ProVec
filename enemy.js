@@ -1,6 +1,33 @@
-const ALIEN_SHEET = typeof Image !== 'undefined' ? new Image() : null;
-if (ALIEN_SHEET) {
-  ALIEN_SHEET.src = './assets/sprites/sheet.png';
+let ALIEN_SHEET = null;
+if (typeof Image !== 'undefined') {
+  const rawSheet = new Image();
+  rawSheet.onload = () => {
+    // Strip solid dark background color to transparent alpha=0
+    const off = document.createElement('canvas');
+    off.width = rawSheet.naturalWidth;
+    off.height = rawSheet.naturalHeight;
+    const octx = off.getContext('2d');
+    octx.drawImage(rawSheet, 0, 0);
+    const imgData = octx.getImageData(0, 0, off.width, off.height);
+    const d = imgData.data;
+    const bgR = d[0];
+    const bgG = d[1];
+    const bgB = d[2];
+    const bgA = d[3];
+    if (bgA > 10) {
+      for (let i = 0; i < d.length; i += 4) {
+        const dr = Math.abs(d[i] - bgR);
+        const dg = Math.abs(d[i + 1] - bgG);
+        const db = Math.abs(d[i + 2] - bgB);
+        if (dr + dg + db < 42) {
+          d[i + 3] = 0;
+        }
+      }
+      octx.putImageData(imgData, 0, 0);
+    }
+    ALIEN_SHEET = off;
+  };
+  rawSheet.src = './assets/sprites/sheet.png';
 }
 
 const ALIEN_FRAME_INDEX = {
@@ -338,8 +365,7 @@ export class Enemy {
     if (
       frameIdx !== undefined &&
       ALIEN_SHEET &&
-      ALIEN_SHEET.complete &&
-      ALIEN_SHEET.naturalWidth >= 1280
+      ALIEN_SHEET.width >= 1280
     ) {
       const size = this.radius * 2.55;
       ctx.save();
