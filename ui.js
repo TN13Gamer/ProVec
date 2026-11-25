@@ -7,6 +7,15 @@
 const DEFAULT_WIDTH = 1280;
 const DEFAULT_HEIGHT = 720;
 
+const mapImage = typeof Image !== 'undefined' ? new Image() : null;
+let mapImageLoaded = false;
+if (mapImage) {
+  mapImage.onload = () => {
+    mapImageLoaded = true;
+  };
+  mapImage.src = './assets/map.jpg';
+}
+
 const COLORS = {
   bgDeep: '#020617',
   bgCenter: '#0f172a',
@@ -76,59 +85,56 @@ function isPointInRect(px, py, rect) {
 export function renderArenaBackground(ctx, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, time = 0) {
   ctx.save();
 
-  // Base radial gradient
   const cx = width / 2;
   const cy = height / 2;
-  const bgGrad = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(width, height) * 0.72);
-  bgGrad.addColorStop(0, COLORS.bgCenter);
-  bgGrad.addColorStop(0.65, '#070d1d');
-  bgGrad.addColorStop(1, COLORS.bgDeep);
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, width, height);
 
-  // Minor tactical grid (64px)
-  const minorStep = 64;
-  ctx.strokeStyle = COLORS.gridMinor;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = minorStep; x < width; x += minorStep) {
-    ctx.moveTo(x + 0.5, 0);
-    ctx.lineTo(x + 0.5, height);
-  }
-  for (let y = minorStep; y < height; y += minorStep) {
-    ctx.moveTo(0, y + 0.5);
-    ctx.lineTo(width, y + 0.5);
-  }
-  ctx.stroke();
+  if (mapImageLoaded && mapImage && mapImage.naturalWidth > 0) {
+    // Cover-fit the map texture onto the 1280x720 arena
+    const imgRatio = mapImage.naturalWidth / mapImage.naturalHeight;
+    const canvasRatio = width / height;
+    let drawW = width;
+    let drawH = height;
+    let drawX = 0;
+    let drawY = 0;
 
-  // Major grid crosshairs (256px)
-  const majorStep = 256;
-  ctx.strokeStyle = COLORS.gridMajor;
-  ctx.lineWidth = 1.25;
-  ctx.beginPath();
-  for (let x = majorStep; x < width; x += majorStep) {
-    for (let y = majorStep; y < height; y += majorStep) {
-      ctx.moveTo(x - 8, y + 0.5);
-      ctx.lineTo(x + 8, y + 0.5);
-      ctx.moveTo(x + 0.5, y - 8);
-      ctx.lineTo(x + 0.5, y + 8);
+    if (imgRatio > canvasRatio) {
+      drawH = height;
+      drawW = height * imgRatio;
+      drawX = (width - drawW) / 2;
+    } else {
+      drawW = width;
+      drawH = width / imgRatio;
+      drawY = (height - drawH) / 2;
     }
+
+    ctx.drawImage(mapImage, drawX, drawY, drawW, drawH);
+
+    // Subtle dark tint so entities, bullets, and HUD stay high-contrast
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.28)';
+    ctx.fillRect(0, 0, width, height);
+  } else {
+    // Fallback procedural dark sci-fi grid while map loads
+    const bgGrad = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(width, height) * 0.72);
+    bgGrad.addColorStop(0, COLORS.bgCenter);
+    bgGrad.addColorStop(0.65, '#070d1d');
+    bgGrad.addColorStop(1, COLORS.bgDeep);
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    const minorStep = 64;
+    ctx.strokeStyle = COLORS.gridMinor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = minorStep; x < width; x += minorStep) {
+      ctx.moveTo(x + 0.5, 0);
+      ctx.lineTo(x + 0.5, height);
+    }
+    for (let y = minorStep; y < height; y += minorStep) {
+      ctx.moveTo(0, y + 0.5);
+      ctx.lineTo(width, y + 0.5);
+    }
+    ctx.stroke();
   }
-  ctx.stroke();
-
-  // Center arena tactical rings
-  const pulse = 0.06 + Math.sin(time * 1.5) * 0.015;
-  ctx.strokeStyle = `rgba(56, 189, 248, ${pulse})`;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 130, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.setLineDash([8, 12]);
-  ctx.beginPath();
-  ctx.arc(cx, cy, 220, time * 0.08, time * 0.08 + Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
 
   // Arena perimeter frame & corner brackets
   const pad = 12;
