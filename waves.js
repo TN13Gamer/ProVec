@@ -31,10 +31,12 @@ export const SURVIVAL_WAVES = [
   {
     wave: 1,
     totalEnemies: 10,
-    spawnInterval: 1.45,
+    spawnInterval: 1.4,
     types: ['stalker', 'spitter'],
     speedMultiplier: 1.0,
     healthMultiplier: 1.0,
+    damageMultiplier: 1.0,
+    fireRateMultiplier: 1.0,
     hasBoss: false,
   },
   {
@@ -42,8 +44,10 @@ export const SURVIVAL_WAVES = [
     totalEnemies: 14,
     spawnInterval: 1.15,
     types: ['stalker', 'spitter', 'runner'],
-    speedMultiplier: 1.05,
+    speedMultiplier: 1.08,
     healthMultiplier: 1.08,
+    damageMultiplier: 1.08,
+    fireRateMultiplier: 1.08,
     hasBoss: false,
   },
   {
@@ -51,8 +55,10 @@ export const SURVIVAL_WAVES = [
     totalEnemies: 18,
     spawnInterval: 0.95,
     types: ['stalker', 'spitter', 'runner', 'brute', 'missiler'],
-    speedMultiplier: 1.1,
+    speedMultiplier: 1.16,
     healthMultiplier: 1.16,
+    damageMultiplier: 1.15,
+    fireRateMultiplier: 1.16,
     hasBoss: false,
   },
   {
@@ -60,17 +66,21 @@ export const SURVIVAL_WAVES = [
     totalEnemies: 22,
     spawnInterval: 0.8,
     types: ['stalker', 'spitter', 'runner', 'brute', 'missiler'],
-    speedMultiplier: 1.16,
+    speedMultiplier: 1.24,
     healthMultiplier: 1.24,
+    damageMultiplier: 1.22,
+    fireRateMultiplier: 1.25,
     hasBoss: false,
   },
   {
     wave: 5,
     totalEnemies: 16,
-    spawnInterval: 1.05,
-    types: ['stalker', 'spitter', 'runner', 'brute', 'missiler'],
-    speedMultiplier: 1.22,
+    spawnInterval: 1.0,
+    types: ['runner', 'stalker', 'spitter'],
+    speedMultiplier: 1.3,
     healthMultiplier: 1.32,
+    damageMultiplier: 1.28,
+    fireRateMultiplier: 1.3,
     hasBoss: true,
   },
 ];
@@ -174,12 +184,12 @@ export class WaveManager {
       return;
     }
 
-    const diff = this.difficulty || DIFFICULTIES.easy;
+    const diff = this.difficulty || DIFFICULTIES.hard;
     const scaling = {
       speedMultiplier: (wave.speedMultiplier ?? 1) * diff.speedMultiplier,
       healthMultiplier: (wave.healthMultiplier ?? 1) * diff.healthMultiplier,
-      damageMultiplier: diff.damageMultiplier,
-      fireRateMultiplier: diff.fireRateMultiplier,
+      damageMultiplier: (wave.damageMultiplier ?? 1) * diff.damageMultiplier,
+      fireRateMultiplier: (wave.fireRateMultiplier ?? 1) * diff.fireRateMultiplier,
     };
 
     if (wave.hasBoss && !this.bossSpawned) {
