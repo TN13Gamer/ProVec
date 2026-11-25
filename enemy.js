@@ -1,17 +1,15 @@
-const ALIEN_SPRITES = {};
-if (typeof Image !== 'undefined') {
-  const spriteMap = {
-    runner: './assets/sprites/alien_1_scout.png',
-    stalker: './assets/sprites/alien_2_raider.png',
-    brute: './assets/sprites/alien_3_tank.png',
-    missiler: './assets/sprites/alien_5_missile_launcher.png',
-  };
-  for (const [key, src] of Object.entries(spriteMap)) {
-    const img = new Image();
-    img.src = src;
-    ALIEN_SPRITES[key] = img;
-  }
+const ALIEN_SHEET = typeof Image !== 'undefined' ? new Image() : null;
+if (ALIEN_SHEET) {
+  ALIEN_SHEET.src = './assets/sprites/sheet.png';
 }
+
+const ALIEN_FRAME_INDEX = {
+  runner: 0,   // Blue winged Scout
+  stalker: 1,  // Orange-red Raider
+  brute: 2,    // Green armored Tank
+  spitter: 3,  // Purple plasma Spitter
+  missiler: 4, // Crimson missile Launcher
+};
 
 export const ENEMY_TYPES = {
   // Melee 1: Aggressive, fast, low health
@@ -335,15 +333,20 @@ export class Enemy {
 
     const stunned = this.stunTimer > 0;
     const legSwing = stunned ? 0 : Math.sin(this.animTime * (this.type === 'runner' ? 20 : 12));
-    const sprite = ALIEN_SPRITES[this.type];
+    const frameIdx = ALIEN_FRAME_INDEX[this.type];
 
-    if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-      const size = this.radius * 2.5;
+    if (
+      frameIdx !== undefined &&
+      ALIEN_SHEET &&
+      ALIEN_SHEET.complete &&
+      ALIEN_SHEET.naturalWidth >= 1280
+    ) {
+      const size = this.radius * 2.55;
       ctx.save();
-      ctx.rotate(this.angle + Math.PI / 2);
+      ctx.rotate(this.angle - Math.PI / 2);
       ctx.imageSmoothingEnabled = false;
       if (stunned) ctx.globalAlpha = 0.65;
-      ctx.drawImage(sprite, -size / 2, -size / 2, size, size);
+      ctx.drawImage(ALIEN_SHEET, frameIdx * 256, 0, 256, 256, -size / 2, -size / 2, size, size);
       ctx.restore();
     } else if (this.type === 'runner') {
       // Scuttling alien legs (3 pairs)
