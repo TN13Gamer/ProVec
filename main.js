@@ -15,6 +15,7 @@ import {
 import {
   createArenaObstacles,
   createObstacle,
+  applyObstacleImpulse,
   resolveEntityObstacleCollision,
   updateObstacles,
   renderObstacles,
@@ -285,7 +286,7 @@ function update(dt) {
   wasRaging = player.isRaging;
 
   updateEnemies(gameState.enemies, dt, player, gameState.enemyBullets);
-  updateObstacles(gameState.obstacles, dt);
+  updateObstacles(gameState.obstacles, dt, bounds);
   updatePickups(gameState.pickups, dt);
 
   // Solid obstacle collisions for player & enemies
@@ -328,6 +329,8 @@ function update(dt) {
       if (checkCircleCollision(b, obs)) {
         obs.health -= b.damage ?? 25;
         obs.hitFlash = 0.08;
+        const bSpd = Math.hypot(b.vx, b.vy) || 1;
+        applyObstacleImpulse(obs, (b.vx / bSpd) * 55, (b.vy / bSpd) * 55);
         effects.spawnHit(b.x, b.y, { color: obs.type === 'barrel' ? '#ef4444' : '#fbbf24' });
         player.bullets.splice(i, 1);
         if (obs.health <= 0) {
@@ -362,15 +365,15 @@ function update(dt) {
     }
   }
 
-  // Periodically respawn a barrel or supply box (max 10)
+  // Periodically respawn a barrel or supply box (max 5)
   obstacleRespawnTimer -= dt;
-  if (obstacleRespawnTimer <= 0 && gameState.obstacles.length < 10) {
+  if (obstacleRespawnTimer <= 0 && gameState.obstacles.length < 5) {
     const ox = 110 + Math.random() * (CANVAS_WIDTH - 220);
     const oy = 110 + Math.random() * (CANVAS_HEIGHT - 220);
-    if (Math.hypot(ox - player.x, oy - player.y) > 130) {
+    if (Math.hypot(ox - player.x, oy - player.y) > 150) {
       gameState.obstacles.push(createObstacle(ox, oy, Math.random() < 0.5 ? 'barrel' : 'box'));
     }
-    obstacleRespawnTimer = 15.0;
+    obstacleRespawnTimer = 16.0;
   }
 
   // Periodic arena supply drops (less frequent now that boxes drop loot)
@@ -471,10 +474,15 @@ function update(dt) {
       });
 
       for (const obs of gameState.obstacles) {
-        if (!obs.isDestroyed && Math.hypot(obs.x - det.x, obs.y - det.y) <= blastRadius + obs.radius) {
+        const dx = obs.x - det.x;
+        const dy = obs.y - det.y;
+        const d = Math.hypot(dx, dy);
+        if (!obs.isDestroyed && d <= blastRadius + obs.radius) {
           obs.health -= blastDamage;
           if (obs.health <= 0) {
             destroyObstacle(obs);
+          } else if (d > 0.001) {
+            applyObstacleImpulse(obs, (dx / d) * 320, (dy / d) * 320);
           }
         }
       }
