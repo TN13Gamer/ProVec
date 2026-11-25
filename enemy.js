@@ -102,7 +102,7 @@ export class Enemy {
       return;
     }
 
-    if (!target || target.isDead) {
+    if (!target || target.isDead || target.isInvisible) {
       return;
     }
 

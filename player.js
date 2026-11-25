@@ -101,6 +101,11 @@ export class Player {
     this.isInvulnerable = false;
     this.afterimages = [];
 
+    // Critical-health LAST STAND state (5s invisibility)
+    this.lastStandUsed = false;
+    this.lastStandTimer = 0;
+    this.isInvisible = false;
+
     // Collectable Throwables (Grenade & Flashbang)
     this.grenadeCount = 2;
     this.flashbangCount = 2;
@@ -249,8 +254,16 @@ export class Player {
     this.grenadeCooldown = Math.max(0, this.grenadeCooldown - dt);
     this.flashbangCooldown = Math.max(0, this.flashbangCooldown - dt);
 
+    if (this.lastStandTimer > 0) {
+      this.lastStandTimer = Math.max(0, this.lastStandTimer - dt);
+      this.isInvisible = this.lastStandTimer > 0;
+    } else {
+      this.isInvisible = false;
+    }
+
     if (this.isDead) {
       this.isMoving = false;
+      this.isInvisible = false;
       this.deathAnim = Math.min(1, this.deathAnim + dt * 2.5);
       return;
     }
@@ -394,7 +407,7 @@ export class Player {
    * @returns {number} Remaining health
    */
   takeDamage(amount) {
-    if (this.isDead || this.isInvulnerable || amount <= 0) {
+    if (this.isDead || this.isInvulnerable || this.isInvisible || amount <= 0) {
       return this.health;
     }
 
@@ -402,6 +415,10 @@ export class Player {
     this.hurtTimer = 0.18;
     if (this.health <= 0) {
       this.isDead = true;
+    } else if (!this.lastStandUsed && this.health <= this.maxHealth * 0.25) {
+      this.lastStandUsed = true;
+      this.lastStandTimer = 5.0;
+      this.isInvisible = true;
     }
 
     return this.health;
@@ -536,6 +553,14 @@ export class Player {
     if (this.isDead) {
       ctx.rotate(facing * (Math.PI / 2) * this.deathAnim);
       ctx.globalAlpha = 0.85;
+    } else if (this.isInvisible) {
+      ctx.globalAlpha = 0.26 + Math.sin(this.animTime * 14) * 0.08;
+      if (this.dashTimer > 0) {
+        ctx.translate(0, 5);
+        ctx.rotate(-facing * 0.35);
+      } else {
+        ctx.translate(0, -bob);
+      }
     } else if (this.dashTimer > 0) {
       ctx.translate(0, 5);
       ctx.rotate(-facing * 0.35);

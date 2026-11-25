@@ -124,6 +124,8 @@ export class GameUI {
           bossBarWrap: document.getElementById('bossBarWrap'),
           bossHealthText: document.getElementById('bossHealthText'),
           bossHealthBar: document.getElementById('bossHealthBar'),
+          lastStandBanner: document.getElementById('lastStandBanner'),
+          lastStandTimer: document.getElementById('lastStandTimer'),
           cardPrimary: document.getElementById('cardPrimary'),
           cardSecondary: document.getElementById('cardSecondary'),
           ammoPrimary: document.getElementById('ammoPrimary'),
@@ -262,6 +264,16 @@ export class GameUI {
         if (this.els.bossHealthBar) {
           this.els.bossHealthBar.style.width = `${bRatio}%`;
         }
+      }
+    }
+
+    // LAST STAND critical cloak banner
+    const lsTimer = player.lastStandTimer ?? 0;
+    if (this.els.lastStandBanner) {
+      const showLS = lsTimer > 0 && state === 'playing';
+      this.els.lastStandBanner.classList.toggle('hidden', !showLS);
+      if (showLS && this.els.lastStandTimer) {
+        this.els.lastStandTimer.textContent = `INVISIBLE: ${lsTimer.toFixed(1)}s`;
       }
     }
 

@@ -196,6 +196,46 @@ body {
   transition: width 0.08s linear;
 }
 
+/* --- LAST STAND Critical Banner --- */
+.last-stand-banner {
+  width: 100%;
+  background: #231407;
+  border-top: 2px solid #f59e0b;
+  border-bottom: 2px solid #f59e0b;
+  padding: 6px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  animation: lsPulse 0.6s steps(2, start) infinite;
+}
+
+.ls-title {
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  color: #fbbf24;
+}
+
+.ls-timer {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fef3c7;
+}
+
+@keyframes lsPulse {
+  0% {
+    background: #231407;
+  }
+  50% {
+    background: #361d09;
+  }
+  100% {
+    background: #231407;
+  }
+}
+
 /* --- Pure Rectangular Arena Canvas (Full Side-to-Side) --- */
 .arena-frame {
   flex: 1;
