@@ -683,7 +683,7 @@ function render() {
           ctx.save();
           ctx.translate(eb.x, eb.y);
           if (hasMissileSprite) {
-            ctx.rotate(angle + Math.PI / 2);
+            ctx.rotate(angle - Math.PI / 2);
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(missileImg, -7, -17, 14, 34);
           } else {

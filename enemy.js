@@ -369,7 +369,8 @@ export class Enemy {
     ) {
       const size = this.radius * 2.55;
       ctx.save();
-      ctx.rotate(this.angle - Math.PI / 2);
+      const rotOffset = this.type === 'spitter' ? Math.PI / 2 : -Math.PI / 2;
+      ctx.rotate(this.angle + rotOffset);
       ctx.imageSmoothingEnabled = false;
       if (stunned) ctx.globalAlpha = 0.65;
       ctx.drawImage(ALIEN_SHEET, frameIdx * 256, 0, 256, 256, -size / 2, -size / 2, size, size);
